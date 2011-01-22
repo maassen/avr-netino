@@ -22,6 +22,7 @@
   
   Modified 24 November 2006 by David A. Mellis
   Modified 1 August 2010 by Mark Sproul
+  Add Int 3 2011-01-08 by M.Maassen <mic.maassen@gmail.com>
 */
 
 #include <inttypes.h>
@@ -104,12 +105,22 @@ void attachInterrupt(uint8_t interruptNum, void (*userFunc)(void), int mode) {
     #elif defined(MCUCR) && defined(ISC10) && defined(ISC11) && defined(GICR)
       MCUCR = (MCUCR & ~((1 << ISC10) | (1 << ISC11))) | (mode << ISC10);
       GICR |= (1 << INT1);
-    #elif defined(MCUCR) && defined(ISC10) && defined(GIMSK) && defined(GIMSK)
+    #elif defined(MCUCR) && defined(ISC10) && defined(ISC11) && defined(GIMSK)
       MCUCR = (MCUCR & ~((1 << ISC10) | (1 << ISC11))) | (mode << ISC10);
       GIMSK |= (1 << INT1);
     #else
       #warning attachInterrupt may need some more work for this cpu (case 1)
     #endif
+      break;
+
+    case 2:
+    #if defined(EICRA) && defined(ISC20) && defined(ISC21) && defined(EIMSK)
+      EICRA = (EICRA & ~((1 << ISC20) | (1 << ISC21))) | (mode << ISC20);
+      EIMSK |= (1 << INT2);
+    #elif defined(MCUCR) && defined(ISC2) && defined(GICR)
+      MCUCR = (MCUCR & ~(1 << ISC2) ) | (mode << ISC2);
+      GICR |= (1 << INT2);
+    #endif  /* only 2 ext. interrups */
       break;
 #endif
     }
@@ -169,6 +180,18 @@ void detachInterrupt(uint8_t interruptNum) {
       GIMSK &= ~(1 << INT1);
     #else
       #warning detachInterrupt may need some more work for this cpu (case 1)
+    #endif
+      break;
+
+    case 2:
+    #if defined(EIMSK) && defined(INT2)
+      EIMSK &= ~(1 << INT2);
+    #elif defined(GICR) && defined(INT2)
+      GICR &= ~(1 << INT2); // atmega32
+    #elif defined(GIMSK) && defined(INT2)
+      GIMSK &= ~(1 << INT2);
+    #else
+      // only 2 ext. ints
     #endif
       break;
 #endif
@@ -237,6 +260,13 @@ SIGNAL(INT1_vect) {
   if(intFunc[EXTERNAL_INT_1])
     intFunc[EXTERNAL_INT_1]();
 }
+
+#if EXTERNAL_NUM_INTERRUPTS > 2
+SIGNAL(INT2_vect) {
+  if(intFunc[EXTERNAL_INT_2])
+    intFunc[EXTERNAL_INT_2]();
+}
+#endif
 
 #endif
 

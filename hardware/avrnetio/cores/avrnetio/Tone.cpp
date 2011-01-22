@@ -36,7 +36,7 @@ Version Modified By Date     Comments
 #include "wiring.h"
 #include "pins_arduino.h"
 
-#if defined(__AVR_ATmega8__) || defined(__AVR_ATmega128__)
+#if defined(__AVR_ATmega8__) || defined(__AVR_ATmega128__) || defined(__AVR_ATmega32__)
 #define TCCR2A TCCR2
 #define TCCR2B TCCR2
 #define COM2A1 COM21

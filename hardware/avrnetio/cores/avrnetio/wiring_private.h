@@ -4,6 +4,9 @@
 
   Copyright (c) 2005-2006 David A. Mellis
 
+  2011-01-20	add INT3 and remove ifdef __AVR_ATmegaXX__, by
+		M.Maassen <mic.maassen@gmail.com>
+
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
@@ -19,7 +22,7 @@
   Free Software Foundation, Inc., 59 Temple Place, Suite 330,
   Boston, MA  02111-1307  USA
 
-  $Id: wiring.h 239 2007-01-12 17:58:39Z mellis $
+  $Id$
 */
 
 #ifndef WiringPrivate_h
@@ -53,8 +56,10 @@ extern "C"{
 #define EXTERNAL_INT_6 6
 #define EXTERNAL_INT_7 7
 
-#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
+#if defined(INT7) //ATmega1280, ATmega2560
 #define EXTERNAL_NUM_INTERRUPTS 8
+#elif defined(INT2)
+#define EXTERNAL_NUM_INTERRUPTS 3
 #else
 #define EXTERNAL_NUM_INTERRUPTS 2
 #endif

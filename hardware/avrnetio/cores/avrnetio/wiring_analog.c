@@ -20,12 +20,14 @@
   Boston, MA  02111-1307  USA
 
   Modified 28 September 2010 by Mark Sproul
+  removed ifdef __AVR_ATmegaXX__ by M.Maassen <mic.maassen@gmail.com>
 
-  $Id: wiring.c 248 2007-02-03 15:36:30Z mellis $
+  $Id$
 */
 
 #include "wiring_private.h"
 #include "pins_arduino.h"
+
 
 uint8_t analog_reference = DEFAULT;
 
@@ -41,11 +43,7 @@ int analogRead(uint8_t pin)
 {
 	uint8_t low, high;
 
-#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
-	if (pin >= 54) pin -= 54; // allow for channel or pin numbers
-#else
-	if (pin >= 14) pin -= 14; // allow for channel or pin numbers
-#endif
+	if (pin >= pins_ADC0) pin -= pins_ADC0; // allow for channel or pin numbers
 
 #if defined(ADCSRB) && defined(MUX5)
 	// the MUX5 bit of ADCSRB selects whether we're reading from channels

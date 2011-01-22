@@ -18,6 +18,8 @@
 /* 20060802: hacked for Arduino by D. Cuartielles         */
 /*           based on a previous hack by D. Mellis        */
 /*           and D. Cuartielles                           */
+/* 20110104: added m644(p) and program led and some       */
+/*           debuging by M.Maassen <mic.maassen@gmail.com>*/
 /*                                                        */
 /* Monitor and debug functions were added to the original */
 /* code by Dr. Erik Lins, chip45.com. (See below)         */
@@ -85,10 +87,14 @@
 /* 20070626: hacked by David A. Mellis to decrease waiting time for auto-reset */
 /* set the waiting time for the bootloader */
 /* get this from the Makefile instead */
-/* #define MAX_TIME_COUNT (F_CPU>>4) */
+#ifndef MAX_TIME_COUNT
+#define MAX_TIME_COUNT (F_CPU>>1) 
+#endif
 
 /* 20070707: hacked by David A. Mellis - after this many errors give up and launch application */
+#ifndef MAX_ERROR_COUNT
 #define MAX_ERROR_COUNT 5
+#endif
 
 /* set the UART baud rate */
 /* 20060803: hacked by DojoCorp */
@@ -128,7 +134,14 @@
 
 /* onboard LED is used to indicate, that the bootloader was entered (3x flashing) */
 /* if monitor functions are included, LED goes on after monitor was entered */
-#if defined __AVR_ATmega128__ || defined __AVR_ATmega1280__
+
+#if defined LED
+/* define LED_DDR  in Makefile */
+/* define LED_PORT in Makefile */
+/* define LED_PIN  in Makefile */
+/* define LED      in Makefile */
+
+#elif defined __AVR_ATmega128__ || defined __AVR_ATmega1280__
 /* Onboard LED is connected to pin PB7 (e.g. Crumb128, PROBOmega128, Savvy128, Arduino Mega) */
 #define LED_DDR  DDRB
 #define LED_PORT PORTB
@@ -154,7 +167,12 @@
 /* manufacturer byte is always the same */
 #define SIG1	0x1E	// Yep, Atmel is the only manufacturer of AVR micros.  Single source :(
 
-#if defined __AVR_ATmega1280__
+#if defined(SIGNATURE_0) && defined(SIGNATURE_1) && defined(SIGNATURE_2) && defined(SPM_PAGESIZE)
+#define SIG2		SIGNATURE_1
+#define SIG3		SIGNATURE_2
+#define PAGE_SIZE	(SPM_PAGESIZE>>1)
+
+#elif defined __AVR_ATmega1280__
 #define SIG2	0x97
 #define SIG3	0x03
 #define PAGE_SIZE	0x80U	//128 words
@@ -178,6 +196,21 @@
 #define SIG2	0x95
 #define SIG3	0x02
 #define PAGE_SIZE	0x40U	//64 words
+
+#elif defined(__AVR_ATmega644P__)
+#define SIG2	0x96
+#define SIG3	0x0A
+#define PAGE_SIZE	0x080U   //128 words
+
+#elif defined(__AVR_ATmega644__)
+#define SIG2	0x96
+#define SIG3	0x09
+#define PAGE_SIZE	0x080U   //128 words
+
+#elif defined(__AVR_ATmega324P__)
+#define SIG2	0x95
+#define SIG3	0x08
+#define PAGE_SIZE	0x080U   //128 words
 
 #elif defined __AVR_ATmega16__
 #define SIG2	0x94
@@ -228,6 +261,9 @@
 #define SIG2	0x93
 #define SIG3	0x08
 #define PAGE_SIZE	0x20U	//32 words
+
+#else
+#error "your mcu is not supported by this bootloader"
 #endif
 
 
@@ -277,6 +313,10 @@ int main(void)
 	uint16_t w;
 
 #ifdef WATCHDOG_MODS
+#ifndef WDTCSR
+#define WDTCSR WDTCR		/* m32 */
+#define WDCE WDTOE
+#endif
 	ch = MCUSR;
 	MCUSR = 0;
 
@@ -369,7 +409,7 @@ int main(void)
 	UBRRHI = (F_CPU/(BAUD_RATE*16L)-1) >> 8;
 	UCSRA = 0x00;
 	UCSRB = _BV(TXEN)|_BV(RXEN);	
-#elif defined(__AVR_ATmega168__) || defined(__AVR_ATmega328P__)
+#elif defined(__AVR_ATmega168__) || defined(__AVR_ATmega328P__) || defined(__AVR_ATmega644P__) || defined(__AVR_ATmega644__) || defined(__AVR_ATmega324P__)
 
 #ifdef DOUBLE_SPEED
 	UCSR0A = (1<<U2X0); //Double speed mode USART0
@@ -388,18 +428,20 @@ int main(void)
 	timing out (DAM: 20070509) */
 	DDRD &= ~_BV(PIND0);
 	PORTD |= _BV(PIND0);
-#elif defined __AVR_ATmega8__
+#elif defined URSEL
 	/* m8 */
 	UBRRH = (((F_CPU/BAUD_RATE)/16)-1)>>8; 	// set baud rate
 	UBRRL = (((F_CPU/BAUD_RATE)/16)-1);
+	UCSRA = 0x00; // is POR val 
 	UCSRB = (1<<RXEN)|(1<<TXEN);  // enable Rx & Tx
 	UCSRC = (1<<URSEL)|(1<<UCSZ1)|(1<<UCSZ0);  // config USART; 8N1
 #else
-	/* m16,m32,m169,m8515,m8535 */
+	/* m16,m32?,m169,m8515,m8535 */
 	UBRRL = (uint8_t)(F_CPU/(BAUD_RATE*16L)-1);
 	UBRRH = (F_CPU/(BAUD_RATE*16L)-1) >> 8;
-	UCSRA = 0x00;
-	UCSRC = 0x06;
+	UCSRA = 0x00; // is POR val 
+	//UCSRC = 0x06;		/* <-- I guess this is wrong (URSEL?) - Mic */
+	UCSRC = (1<<UCSZ1)|(1<<UCSZ0);  // config USART; 8N1
 	UCSRB = _BV(TXEN)|_BV(RXEN);
 #endif
 
@@ -412,10 +454,14 @@ int main(void)
 	PORTE |= _BV(PINE0);
 #endif
 
-
+#if LED >= 0
 	/* set LED pin as output */
 	LED_DDR |= _BV(LED);
-
+#endif
+#ifdef LED_PGM 
+	/* set program LED pin as output */
+	LED_DDR |= _BV(LED_PGM);
+#endif
 
 	/* flash onboard LED to signal entering of bootloader */
 #if defined(__AVR_ATmega128__) || defined(__AVR_ATmega1280__)
@@ -555,10 +601,14 @@ int main(void)
 			buff[w] = getch();	                        // Store data in buffer, can't keep up with serial data stream whilst programming pages
 		}
 		if (getch() == ' ') {
+#ifdef LED_PGM 
+			LED_PORT |= _BV(LED_PGM); /* Mem Write LED */
+#endif
+
 			if (flags.eeprom) {		                //Write to EEPROM one byte at a time
 				address.word <<= 1;
 				for(w=0;w<length.word;w++) {
-#if defined(__AVR_ATmega168__)  || defined(__AVR_ATmega328P__)
+#if defined(__AVR_ATmega168__)  || defined(__AVR_ATmega328P__) || defined(__AVR_ATmega644P__) || defined(__AVR_ATmega644__) || defined(__AVR_ATmega324P__)
 					while(EECR & (1<<EEPE));
 					EEAR = (uint16_t)(void *)address.word;
 					EEDR = buff[w];
@@ -580,7 +630,8 @@ int main(void)
 				/* if ((length.byte[0] & 0x01) == 0x01) length.word++;	//Even up an odd number of bytes */
 				if ((length.byte[0] & 0x01)) length.word++;	//Even up an odd number of bytes
 				cli();					//Disable interrupts, just to be sure
-#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega1281__)
+//#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega1281__) || defined(__AVR_ATmega644P__) || defined(__AVR_ATmega644__) || defined(__AVR_ATmega324P__)
+#ifdef EEPE
 				while(bit_is_set(EECR,EEPE));			//Wait for previous EEPROM writes to complete
 #else
 				while(bit_is_set(EECR,EEWE));			//Wait for previous EEPROM writes to complete
@@ -679,7 +730,7 @@ int main(void)
 					 "rjmp	write_page	\n\t"
 					 "block_done:		\n\t"
 					 "clr	__zero_reg__	\n\t"	//restore zero register
-#if defined __AVR_ATmega168__  || __AVR_ATmega328P__ || __AVR_ATmega128__ || __AVR_ATmega1280__ || __AVR_ATmega1281__ 
+#if defined __AVR_ATmega168__  || __AVR_ATmega328P__ || __AVR_ATmega128__ || __AVR_ATmega1280__ || __AVR_ATmega1281__ || __AVR_ATmega644P__ || __AVR_ATmega644__ || __AVR_ATmega324P__
 					 : "=m" (SPMCSR) : "M" (PAGE_SIZE) : "r0","r16","r17","r24","r25","r28","r29","r30","r31"
 #else
 					 : "=m" (SPMCR) : "M" (PAGE_SIZE) : "r0","r16","r17","r24","r25","r28","r29","r30","r31"
@@ -688,6 +739,9 @@ int main(void)
 				/* Should really add a wait for RWW section to be enabled, don't actually need it since we never */
 				/* exit the bootloader without a power cycle anyhow */
 			}
+#ifdef LED_PGM
+			LED_PORT &= ~_BV(LED_PGM);
+#endif
 			putch(0x14);
 			putch(0x10);
 		} else {
@@ -712,7 +766,7 @@ int main(void)
 			putch(0x14);
 			for (w=0;w < length.word;w++) {		        // Can handle odd and even lengths okay
 				if (flags.eeprom) {	                        // Byte access EEPROM read
-#if defined(__AVR_ATmega168__)  || defined(__AVR_ATmega328P__)
+#if defined(__AVR_ATmega168__)  || defined(__AVR_ATmega328P__) || defined(__AVR_ATmega644P__) || defined(__AVR_ATmega644__) || defined(__AVR_ATmega324P__)
 					while(EECR & (1<<EEPE));
 					EEAR = (uint16_t)(void *)address.word;
 					EECR |= (1<<EERE);
@@ -928,7 +982,7 @@ void putch(char ch)
 		while (!(UCSR1A & _BV(UDRE1)));
 		UDR1 = ch;
 	}
-#elif defined(__AVR_ATmega168__)  || defined(__AVR_ATmega328P__)
+#elif defined(__AVR_ATmega168__)  || defined(__AVR_ATmega328P__) || defined(__AVR_ATmega644P__) || defined(__AVR_ATmega644__) || defined(__AVR_ATmega324P__)
 	while (!(UCSR0A & _BV(UDRE0)));
 	UDR0 = ch;
 #else
@@ -966,7 +1020,7 @@ char getch(void)
 		return UDR1;
 	}
 	return 0;
-#elif defined(__AVR_ATmega168__)  || defined(__AVR_ATmega328P__)
+#elif defined(__AVR_ATmega168__)  || defined(__AVR_ATmega328P__) || defined(__AVR_ATmega644P__) || defined(__AVR_ATmega644__) || defined(__AVR_ATmega324P__)
 	uint32_t count = 0;
 	while(!(UCSR0A & _BV(RXC0))){
 		/* 20060803 DojoCorp:: Addon coming from the previous Bootloader*/               
@@ -1035,17 +1089,23 @@ void nothing_response(void)
 		putch(0x14);
 		putch(0x10);
 	} else {
-		if (++error_count == MAX_ERROR_COUNT)
+	  if (++error_count >= MAX_ERROR_COUNT) {
+#if defined(LED_PGM) && LED_PGM == LED
+			flash_led(error_count);
+#endif
 			app_start();
+	  }
 	}
 }
 
 void flash_led(uint8_t count)
 {
 	while (count--) {
+#if LED >= 0
 		LED_PORT |= _BV(LED);
 		_delay_ms(100);
 		LED_PORT &= ~_BV(LED);
+#endif
 		_delay_ms(100);
 	}
 }

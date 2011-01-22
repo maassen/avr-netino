@@ -196,6 +196,43 @@ mega_isp: LFUSE = FF
 mega_isp: EFUSE = F5
 mega_isp: isp
 
+### AVR-Net-IO w/ ATmega32
+atmega32: TARGET = atmega32
+atmega32: MCU_TARGET = atmega32
+atmega32: CFLAGS += '-DMAX_TIME_COUNT=F_CPU>>4' '-DNUM_LED_FLASHES=1' '-DBAUD_RATE=57600' 
+# at D2 is LED1 on the AddOn board 
+atmega32: CFLAGS += '-DLED=PIND2' '-DLED_DDR=DDRD' '-DLED_PORT=PORTD' '-DLED_PGM=PIND2'
+atmega32: AVR_FREQ = 16000000L 
+atmega32: LDSECTION  = --section-start=.text=0x7800
+atmega32: $(PROGRAM)_atmega32.hex
+
+atmega32_isp: atmega32
+atmega32_isp: TARGET = atmega32
+atmega32_isp: MCU_TARGET = atmega32
+atmega32_isp: HFUSE = DD
+atmega32_isp: LFUSE = FF
+#atmega32_isp: EFUSE = 05
+atmega32_isp: isp
+
+### AVR-Net-IO w/ ATmega644p
+atmega644p: TARGET = atmega644p
+atmega644p: MCU_TARGET = atmega644p
+atmega644p: CFLAGS += '-DMAX_TIME_COUNT=F_CPU>>4' '-DNUM_LED_FLASHES=1' '-DBAUD_RATE=57600'
+# at D2 is LED1 on the AddOn board 
+atmega644p: CFLAGS += '-DLED=PIND2' '-DLED_DDR=DDRD' '-DLED_PORT=PORTD' '-DLED_PGM=PIND2'
+atmega644p: AVR_FREQ = 16000000L 
+atmega644p: LDSECTION  = --section-start=.text=0xF800
+atmega644p: $(PROGRAM)_atmega644p.hex
+
+atmega644p_isp: atmega644p
+atmega644p_isp: TARGET = atmega644p
+atmega644p_isp: MCU_TARGET = atmega644p
+atmega644p_isp: HFUSE = DC
+atmega644p_isp: LFUSE = FF
+atmega644p_isp: EFUSE = FD
+atmega644p_isp: isp
+
+
 isp: $(TARGET)
 	$(ISPFUSES)
 	$(ISPFLASH)
@@ -206,6 +243,7 @@ isp-stk500: $(PROGRAM)_$(TARGET).hex
 
 %.elf: $(OBJ)
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
+	avr-size $@
 
 clean:
 	rm -rf *.o *.elf *.lst *.map *.sym *.lss *.eep *.srec *.bin *.hex
@@ -221,4 +259,4 @@ clean:
 
 %.bin: %.elf
 	$(OBJCOPY) -j .text -j .data -O binary $< $@
-	
+
