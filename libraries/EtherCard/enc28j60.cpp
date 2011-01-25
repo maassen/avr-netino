@@ -12,26 +12,35 @@
 #include "enc28j60_defs.h"
 #include <WProgram.h>
 
+// get SPI pins
+#include "pins_arduino.h"
+
 static byte Enc28j60Bank;
 static int16_t gNextPacketPtr;
 
 //AT: Use pin 10 for nuelectronics.com compatible ethershield.
+#if !defined ENC28J60_CONTROL_CS
+#if defined AVR_NET_IO
+#define ENC28J60_CONTROL_CS ENC28J60_CS
+#else
 #define ENC28J60_CONTROL_CS 8
+#endif
+#endif
 
 void ENC28J60::spiInit() {
-    const byte SPI_SS   = 10;
-    const byte SPI_MOSI	= 11;
-    const byte SPI_MISO	= 12;
-    const byte SPI_SCK	= 13;
+    const byte SPI_SS   = SS;
+    const byte SPI_MOSI	= MOSI;
+    const byte SPI_MISO	= MISO;
+    const byte SPI_SCK	= SCK;
     
     pinMode(SPI_SS, OUTPUT);
     pinMode(SPI_MOSI, OUTPUT);
-	pinMode(SPI_SCK, OUTPUT);	
-	pinMode(SPI_MISO, INPUT);
+    pinMode(SPI_SCK, OUTPUT);	
+    pinMode(SPI_MISO, INPUT);
 	
-	digitalWrite(SPI_MOSI, HIGH);
-	digitalWrite(SPI_MOSI, LOW);
-	digitalWrite(SPI_SCK, LOW);
+    digitalWrite(SPI_MOSI, HIGH);
+    digitalWrite(SPI_MOSI, LOW);
+    digitalWrite(SPI_SCK, LOW);
 
     SPCR = (1<<SPE)|(1<<MSTR);
     // SPCR = (1<<SPE)|(1<<MSTR) | (1<<SPR0);
@@ -42,6 +51,10 @@ static void enableChip() {
     cli();
 #if ENC28J60_CONTROL_CS == 8
     bitClear(PORTB, 0); // much faster
+#elif defined AVR_NET_IO
+    // faster but more general
+    *(portOutputRegister(digitalPinToPort(ENC28J60_CONTROL_CS))) &= 
+	     ~digitalPinToBitMask(ENC28J60_CONTROL_CS);
 #else
     digitalWrite(ENC28J60_CONTROL_CS, LOW);
 #endif
@@ -50,6 +63,11 @@ static void enableChip() {
 static void disableChip() {
 #if ENC28J60_CONTROL_CS == 8
     bitSet(PORTB, 0); // much faster
+#elif defined AVR_NET_IO
+    // faster but more general
+    *(portOutputRegister(digitalPinToPort(ENC28J60_CONTROL_CS))) |= 
+	     digitalPinToBitMask(ENC28J60_CONTROL_CS);
+
 #else
     digitalWrite(ENC28J60_CONTROL_CS, HIGH);
 #endif
