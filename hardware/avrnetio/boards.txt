@@ -27,6 +27,25 @@ anio644p.build.core=avrnetio
 #anio644p.bootloader.file=ATmegaBOOT_644P.hex
 
 ##############################################################
+anio644.name=AVR-NET-IO w/ ATmega644
+### sometimes stk500 protocol has problems with auto reset
+### protocol=arduino is more reliable, but needs avrdude >= 5.6
+# anio644.upload.protocol=arduino
+anio644.upload.protocol=stk500
+anio644.upload.maximum_size=63488
+anio644.upload.speed=57600
+anio644.bootloader.low_fuses=0xFF
+anio644.bootloader.high_fuses=0xDC
+anio644.bootloader.extended_fuses=0xFD
+anio644.bootloader.path=atmega
+anio644.bootloader.file=ATmegaBOOT_168_atmega644.hex
+anio644.bootloader.unlock_bits=0x3F
+anio644.bootloader.lock_bits=0x0F
+anio644.build.mcu=atmega644
+anio644.build.f_cpu=16000000L
+anio644.build.core=avrnetio
+
+##############################################################
 anio32.name=AVR-NET-IO w/ ATmega32
 ### sometimes stk500 protocol has problems with auto reset
 ### protocol=arduino is more reliable, but needs avrdude >= 5.6

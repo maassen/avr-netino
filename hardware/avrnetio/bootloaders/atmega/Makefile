@@ -214,6 +214,24 @@ atmega32_isp: LFUSE = FF
 #atmega32_isp: EFUSE = 05
 atmega32_isp: isp
 
+### AVR-Net-IO w/ ATmega644
+atmega644: TARGET = atmega644
+atmega644: MCU_TARGET = atmega644
+atmega644: CFLAGS += '-DMAX_TIME_COUNT=F_CPU>>4' '-DNUM_LED_FLASHES=1' '-DBAUD_RATE=57600'
+# at D2 is LED1 on the AddOn board 
+atmega644: CFLAGS += '-DLED=PIND2' '-DLED_DDR=DDRD' '-DLED_PORT=PORTD' '-DLED_PGM=PIND2'
+atmega644: AVR_FREQ = 16000000L 
+atmega644: LDSECTION  = --section-start=.text=0xF800
+atmega644: $(PROGRAM)_atmega644.hex
+
+atmega644_isp: atmega644
+atmega644_isp: TARGET = atmega644
+atmega644_isp: MCU_TARGET = atmega644
+atmega644_isp: HFUSE = DC
+atmega644_isp: LFUSE = FF
+atmega644_isp: EFUSE = FD
+atmega644_isp: isp
+
 ### AVR-Net-IO w/ ATmega644p
 atmega644p: TARGET = atmega644p
 atmega644p: MCU_TARGET = atmega644p

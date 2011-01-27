@@ -8,6 +8,7 @@
  * Copyright (c) 2011 Michael Maassen
  * 
  * 2011-01-04:	port to AVR-Net-IO by M.Maassen <mic.maassen@gmail.com>
+ * 2011-01-23:	add A0..A3 for better compatiblity with arduino
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -99,7 +100,7 @@
  ***********************************************************/
 // we define AVR_NET_IO to flag different pinnig to libraries
 #ifndef AVR_NET_IO 
-#define AVR_NET_IO	0x20110120	/* Date 2011-01-20 */
+#define AVR_NET_IO	0x20110127	/* Date 2011-01-27 */
 #endif
 
 #ifdef pinDef
@@ -117,10 +118,10 @@ pinDef( C, 5 , NOT_ON_TIMER,TDI,J3_7)
 pinDef( C, 6 , NOT_ON_TIMER,TOSC1,J3_8)
 pinDef( C, 7 , NOT_ON_TIMER,TOSC2,J3_9)
 /* 8 */
-pinDef( A, 0 , NOT_ON_TIMER,ADC0,J3_10)
-pinDef( A, 1 , NOT_ON_TIMER,ADC1,J3_11)
-pinDef( A, 2 , NOT_ON_TIMER,ADC2,J3_12)
-pinDef( A, 3 , NOT_ON_TIMER,ADC3,J3_13)
+pinDef( A, 0 , NOT_ON_TIMER,ADC0,A0)
+pinDef( A, 1 , NOT_ON_TIMER,ADC1,A1)
+pinDef( A, 2 , NOT_ON_TIMER,ADC2,A2)
+pinDef( A, 3 , NOT_ON_TIMER,ADC3,A3)
 pinDef( A, 4 , NOT_ON_TIMER,ADC4,ADC_1)
 pinDef( A, 5 , NOT_ON_TIMER,ADC5,ADC_2)
 pinDef( A, 6 , NOT_ON_TIMER,ADC6,ADC_3)

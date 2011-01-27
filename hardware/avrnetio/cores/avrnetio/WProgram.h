@@ -65,7 +65,7 @@ long map(long, long, long, long, long);
 extern "C" {
 #endif // __cplusplus
 
-#define pinDef(P,B,T,F,U) U,
+#define pinDef(P,B,T,F,U,...) U,
   enum pin_usage {
 #include BOARD_DEF
   };
