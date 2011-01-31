@@ -1,9 +1,41 @@
+/************************************************************
+ * LiquidCrystal_I2C
+ *
+ * The LiquidCrystal_I2C library is a modified version of the standard 
+ * LiquidCrystal library as found on the Arduino website.
+ * This library is intended to be used when a parallel HD44780 compatible 
+ * LCD is controlled over I2C using a PCF8574 extender.
+ *
+ * url: http://www.xs4all.nl/~hmario/arduino/LiquidCrystal_I2C/LiquidCrystal_I2C.zip
+ * licence: unkown (same as Arduino LiquidCrystal library)
+ *
+ * Sep 2009	V1.0 by Mario H.
+ * Jan 2011	adapted to AVR-Net-IO
+ ************************************************************/
 #include "LiquidCrystal_I2C.h"
 #include <inttypes.h>
 #include "WProgram.h" 
 #include "Wire.h"
 
+#ifdef AVR_NET_IO
+#include <pins_arduino.h>
+// flags for backlight control
+#define LCD_BACKLIGHT 0x00
+#define LCD_NOBACKLIGHT I2C_LCD_BL
 
+#define En I2C_LCD_E  // Enable bit
+#define Rw I2C_LCD_RW  // Read/Write bit
+#define Rs I2C_LCD_RS  // Register select bit
+
+#else
+// flags for backlight control
+#define LCD_BACKLIGHT 0x00
+#define LCD_NOBACKLIGHT 0x80
+
+#define En B00010000  // Enable bit
+#define Rw B00100000  // Read/Write bit
+#define Rs B01000000  // Register select bit
+#endif // AVR_NET_IO
 
 // When the display powers up, it is configured as follows:
 //
@@ -28,10 +60,28 @@ LiquidCrystal_I2C::LiquidCrystal_I2C(uint8_t lcd_Addr,uint8_t lcd_cols,uint8_t l
 {
   _Addr = lcd_Addr;
   _cols = lcd_cols;
-  _rows = lcd_rows;
+  _numlines = lcd_rows;
   _backlightval = LCD_NOBACKLIGHT;
+  _Bl = LCD_BACKLIGHT?LCD_BACKLIGHT:LCD_NOBACKLIGHT;
+  _En = En;
+  _Rs = Rs;
+  _Rw = Rw;
+  //init();
 }
 
+LiquidCrystal_I2C::LiquidCrystal_I2C(uint8_t lcd_Addr,uint8_t E,uint8_t RS, 
+				     uint8_t RW, uint8_t BL)
+{
+  _Addr = lcd_Addr;
+  _numlines = 0;
+  _backlightval = BL;
+  _En = E;
+  _Rs = RS;
+  _Rw = RW;
+  _Bl = BL;
+  //init();
+}
+ 
 void LiquidCrystal_I2C::init(){
 	init_priv();
 }
@@ -40,7 +90,10 @@ void LiquidCrystal_I2C::init_priv()
 {
 	Wire.begin();
 	_displayfunction = LCD_4BITMODE | LCD_1LINE | LCD_5x8DOTS;
-	begin(_cols, _rows);  
+	if (_numlines)
+	  begin(_cols, _numlines);  
+	else
+	  begin(16, 1);  
 }
 
 void LiquidCrystal_I2C::begin(uint8_t cols, uint8_t lines, uint8_t dotsize) {
@@ -198,12 +251,12 @@ void LiquidCrystal_I2C::createChar(uint8_t location, uint8_t charmap[]) {
 
 // Turn the (optional) backlight off/on
 void LiquidCrystal_I2C::noBacklight(void) {
-	_backlightval=LCD_NOBACKLIGHT;
+        _backlightval&=~_Bl;
 	expanderWrite(0);
 }
 
 void LiquidCrystal_I2C::backlight(void) {
-	_backlightval=LCD_BACKLIGHT;
+        _backlightval|=_Bl;
 	expanderWrite(0);
 }
 
@@ -216,7 +269,7 @@ inline void LiquidCrystal_I2C::command(uint8_t value) {
 }
 
 inline void LiquidCrystal_I2C::write(uint8_t value) {
-	send(value, Rs);
+	send(value, _Rs);
 }
 
 
@@ -243,10 +296,10 @@ void LiquidCrystal_I2C::expanderWrite(uint8_t _data){
 }
 
 void LiquidCrystal_I2C::pulseEnable(uint8_t _data){
-	expanderWrite(_data | En);	// En high
+	expanderWrite(_data | _En);	// En high
 	delayMicroseconds(1);		// enable pulse must be >450ns
 	
-	expanderWrite(_data & ~En);	// En low
+	expanderWrite(_data & ~_En);	// En low
 	delayMicroseconds(50);		// commands need > 37us to settle
 } 
 
