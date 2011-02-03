@@ -10,7 +10,7 @@
  * licence: unkown (same as Arduino LiquidCrystal library)
  *
  * Sep 2009	V1.0 by Mario H.
- * Jan 2011	adapted to AVR-Net-IO
+ * Jan 2011	adapted to AVR-Net-IO by M.Maassen <mic.maassen@gmail.com>
  ************************************************************/
 #ifndef LiquidCrystal_I2C_h
 #define LiquidCrystal_I2C_h
