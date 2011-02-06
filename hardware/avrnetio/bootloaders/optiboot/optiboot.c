@@ -3,6 +3,14 @@
 /*                                                        */
 /* http://optiboot.googlecode.com                         */
 /*                                                        */
+/* 2011-02-06 Modifications for AVR-Net-IO (avr-netino)   */
+/* by M.Maassen <mic.maassen@gmail.com>                   */
+/* added ATmega32 and ATmega644(P)                        */
+/* put all board specific stuff including LED definitions */
+/* in the Makefile via LED_B/LED_P and remove pin_def.h   */
+/*                                                        */
+/* http://avr-netino.googlecode.com                       */
+/*                                                        */
 /* Heavily optimised bootloader that is faster and        */
 /* smaller than the Arduino standard bootloader           */
 /*                                                        */
@@ -30,7 +38,8 @@
 /*   ATmega1280 based devices (Arduino Mega)              */
 /*                                                        */
 /* Work in progress:                                      */
-/*   ATmega644P based devices (Sanguino)                  */
+/*   ATmega644P based devices (Sanguino/AVR-Net-IO)       */
+/*   ATmega644/32 based devices (AVR-Net-IO)              */
 /*   ATtiny84 based devices (Luminet)                     */
 /*                                                        */
 /* Does not support:                                      */
@@ -102,6 +111,13 @@
 /* Flash LED when transferring data. For boards without   */
 /* TX or RX LEDs, or for people who like blinky lights.   */
 /*                                                        */
+/* LED,LED_DDR,LED_PORT|LED_PIN                           */
+/* or for short: LED_B LED_P                              */
+/* These must be defined, if LED_START_FLASHES or         */
+/* LED_DATA_FLASH is set.                                 */
+/*                                                        */
+/* HAVE_PIN_DEFS to use pin_defs.h                        */
+/*                                                        */
 /* SUPPORT_EEPROM:                                        */
 /* Support reading and writing from EEPROM. This is not   */
 /* used by Arduino, so off by default.                    */
@@ -122,11 +138,32 @@
 
 // We don't use <avr/wdt.h> as those routines have interrupt overhead we don't need.
 
+#ifdef HAVE_PIN_DEFS
 #include "pin_defs.h"
+#endif
+
 #include "stk500.h"
 
+#if defined ( LED_B ) && defined ( LED_P )
+#define _REG(x,y) _CAT(x,y)
+#define _CAT(x,y)  x##y
+#define LED_DDR  _REG(DDR,LED_P)
+#define LED_PORT _REG(PORT,LED_P)
+//#define LED_PIN  _REG(PIN,LED_P)
+#define LED      _REG(PIN,_REG(LED_P,LED_B))
+#define LED_PGM  _REG(PIN,_REG(LED_P,LED_B))
+#endif
+
 #ifndef LED_START_FLASHES
+#ifdef  NUM_LED_FLASHES
+#define LED_START_FLASHES NUM_LED_FLASHES
+#else
 #define LED_START_FLASHES 0
+#endif
+#endif
+
+#if ! defined( LED_DATA_FLASH ) && defined( LED_PGM )
+#define LED_DATA_FLASH
 #endif
 
 #ifdef LUDICROUS_SPEED
@@ -137,9 +174,9 @@
 #ifndef BAUD_RATE
 #if F_CPU >= 8000000L
 #define BAUD_RATE   115200L // Highest rate Avrdude win32 will support
-#elsif F_CPU >= 1000000L
+#elif F_CPU >= 1000000L
 #define BAUD_RATE   9600L   // 19200 also supported, but with significant error
-#elsif F_CPU >= 128000L
+#elif F_CPU >= 128000L
 #define BAUD_RATE   4800L   // Good for 128kHz internal RC
 #else
 #define BAUD_RATE 1200L     // Good even at 32768Hz
@@ -163,9 +200,41 @@
 #define WATCHDOG_500MS  (_BV(WDP2) | _BV(WDP0) | _BV(WDE))
 #define WATCHDOG_1S     (_BV(WDP2) | _BV(WDP1) | _BV(WDE))
 #define WATCHDOG_2S     (_BV(WDP2) | _BV(WDP1) | _BV(WDP0) | _BV(WDE))
-#ifndef __AVR_ATmega8__
+#ifdef WDE3
 #define WATCHDOG_4S     (_BV(WDE3) | _BV(WDE))
 #define WATCHDOG_8S     (_BV(WDE3) | _BV(WDE0) | _BV(WDE))
+#endif
+
+/* Watch dog register names for old ATmegas */
+#if !defined ( MCUSR ) && defined ( MCUCSR )
+#define MCUSR  MCUCSR
+#endif
+#if !defined ( WDTCSR ) && defined ( WDTCR )
+#define WDTCSR WDTCR		/* m32 */
+#endif
+#if !defined ( WDCE ) && defined ( WDTOE )
+#define WDCE WDTOE
+#endif
+
+/* USART register names for old ATmegas */
+#if !defined ( UCSR0A ) && defined ( UCSRA ) 
+#define	UCSR0A	 UCSRA
+#endif
+
+#if !defined ( UDR0 ) && defined ( UDR )
+#define	UDR0	 UDR
+#endif
+
+#if !defined ( UDRE0 ) && defined ( UDRE )
+#define	UDRE0	 UDRE
+#endif
+
+#if !defined ( RXC0 ) && defined ( RXC )
+#define	RXC0	 RXC
+#endif
+
+#if !defined ( TIFR1 ) && defined ( TIFR )
+#define	TIFR1	 TIFR
 #endif
 
 /* Function Prototypes */
@@ -186,25 +255,40 @@ void uartDelay() __attribute__ ((naked));
 #endif
 void appStart() __attribute__ ((naked));
 
-#if defined(__AVR_ATmega168__)
-#define RAMSTART (0x100)
-#define NRWWSTART (0x3800)
-#elif defined(__AVR_ATmega328P__)
-#define RAMSTART (0x100)
-#define NRWWSTART (0x7000)
-#elif defined (__AVR_ATmega644P__)
-#define RAMSTART (0x100)
-#define NRWWSTART (0xE000)
-#elif defined(__AVR_ATtiny84__)
-#define RAMSTART (0x100)
-#define NRWWSTART (0x0000)
-#elif defined(__AVR_ATmega1280__)
-#define RAMSTART (0x200)
-#define NRWWSTART (0xE000)
-#elif defined(__AVR_ATmega8__) || defined(__AVR_ATmega88__)
-#define RAMSTART (0x100)
+
+/************************************************************
+ * the following is at least true for:
+ * ATmega48A/48PA/88A/88PA/168A/168PA/328/328P
+ * ATmega164A/164PA/324A/324PA/644A/644PA/1284/1284P
+ * ATmega640/1280/1281/2560/2561
+ * ATmega8/32A/16(L)162(V)
+ ************************************************************/
+#ifdef NRWWSTART
+/* defined in Makefile */
+#elif FLASHEND == 0x1FFF		/* 8k */
 #define NRWWSTART (0x1800)
+#elif FLASHEND == 0x3FFF		/* 16k */
+#define NRWWSTART (0x3800)
+#elif FLASHEND == 0x7FFF		/* 32k */
+#define NRWWSTART (0x7000)
+#elif FLASHEND == 0xFFFF		/* 64k */
+#define NRWWSTART (0xE000)
+#elif FLASHEND == 0x1FFFF		/* 128k */
+#define NRWWSTART (0x1E000)
+#elif FLASHEND == 0x3FFFF		/* 256k */
+#define NRWWSTART (0x3E000)
+#else
+#define NRWWSTART (0x0000)	/* disable background page erase */
 #endif
+
+#ifdef RAMSTART
+/* defined in Makefile */
+#elif defined(__AVR_ATmega640__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1281__) || defined(__AVR_ATmega2561__)
+#define RAMSTART (0x200)
+#else
+#define RAMSTART (0x100)
+#endif
+
 
 /* C zero initialises all global variables. However, that requires */
 /* These definitions are NOT zero initialised, but that doesn't matter */
@@ -228,12 +312,13 @@ int main(void) {
   //
   // If not, uncomment the following instructions:
   // cli();
+  asm volatile ("cli");
 
-#ifdef __AVR_ATmega8__
+  //#ifdef __AVR_ATmega8__
   SP=RAMEND;  // This is done by hardware reset
-#endif
+  //#endif
 
-  // asm volatile ("clr __zero_reg__");
+  asm volatile ("clr __zero_reg__");
 
   uint8_t ch;
 
@@ -247,24 +332,30 @@ int main(void) {
   TCCR1B = _BV(CS12) | _BV(CS10); // div 1024
 #endif
 #ifndef SOFT_UART
-#ifdef __AVR_ATmega8__
+#ifdef UCSRA
   UCSRA = _BV(U2X); //Double speed mode USART
   UCSRB = _BV(RXEN) | _BV(TXEN);  // enable Rx & Tx
+#ifdef URSEL
   UCSRC = _BV(URSEL) | _BV(UCSZ1) | _BV(UCSZ0);  // config USART; 8N1
+#else
+  UCSRC = _BV(UCSZ1) | _BV(UCSZ0);  // config USART; 8N1
+#endif	/* URSEL */
   UBRRL = (uint8_t)( (F_CPU + BAUD_RATE * 4L) / (BAUD_RATE * 8L) - 1 );
 #else
   UCSR0A = _BV(U2X0); //Double speed mode USART0
   UCSR0B = _BV(RXEN0) | _BV(TXEN0);
   UCSR0C = _BV(UCSZ00) | _BV(UCSZ01);
   UBRR0L = (uint8_t)( (F_CPU + BAUD_RATE * 4L) / (BAUD_RATE * 8L) - 1 );
-#endif
-#endif
+#endif /* UCSRA */
+#endif /* SOFT_UART */
 
   // Set up watchdog to trigger after 500ms
   watchdogConfig(WATCHDOG_1S);
 
   /* Set LED pin as output */
+#if defined(LED_DATA_FLASH) || (LED_START_FLASHES > 0)
   LED_DDR |= _BV(LED);
+#endif
 
 #ifdef SOFT_UART
   /* Set TX pin as output */
@@ -471,7 +562,7 @@ uint8_t getch(void) {
   watchdogReset();
 
 #ifdef LED_DATA_FLASH
-#ifdef __AVR_ATmega8__
+#ifndef LED_PIN
   LED_PORT ^= _BV(LED);
 #else
   LED_PIN |= _BV(LED);
@@ -508,7 +599,7 @@ uint8_t getch(void) {
 #endif
 
 #ifdef LED_DATA_FLASH
-#ifdef __AVR_ATmega8__
+#ifndef LED_PIN 
   LED_PORT ^= _BV(LED);
 #else
   LED_PIN |= _BV(LED);
@@ -553,7 +644,7 @@ void flash_led(uint8_t count) {
     TCNT1 = -(F_CPU/(1024*16));
     TIFR1 = _BV(TOV1);
     while(!(TIFR1 & _BV(TOV1)));
-#ifdef __AVR_ATmega8__
+#ifndef LED_PIN 
     LED_PORT ^= _BV(LED);
 #else
     LED_PIN |= _BV(LED);

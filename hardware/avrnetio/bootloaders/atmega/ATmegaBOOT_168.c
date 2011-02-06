@@ -135,11 +135,14 @@
 /* onboard LED is used to indicate, that the bootloader was entered (3x flashing) */
 /* if monitor functions are included, LED goes on after monitor was entered */
 
-#if defined LED
-/* define LED_DDR  in Makefile */
-/* define LED_PORT in Makefile */
-/* define LED_PIN  in Makefile */
-/* define LED      in Makefile */
+#if defined ( LED_B ) && defined ( LED_P )
+#define _REG(x,y) _CAT(x,y)
+#define _CAT(x,y)  x##y
+#define LED_DDR  _REG(DDR,LED_P)
+#define LED_PORT _REG(PORT,LED_P)
+#define LED_PIN  _REG(PIN,LED_P)
+#define LED      _REG(PIN,_REG(LED_P,LED_B))
+#define LED_PGM  _REG(PIN,_REG(LED_P,LED_B))
 
 #elif defined __AVR_ATmega128__ || defined __AVR_ATmega1280__
 /* Onboard LED is connected to pin PB7 (e.g. Crumb128, PROBOmega128, Savvy128, Arduino Mega) */
@@ -155,7 +158,6 @@
 #define LED_PIN  PINB
 #define LED      PINB5
 #endif
-
 
 /* monitor functions will only be compiled when using ATmega128, due to bootblock size constraints */
 #if defined(__AVR_ATmega128__) || defined(__AVR_ATmega1280__)
