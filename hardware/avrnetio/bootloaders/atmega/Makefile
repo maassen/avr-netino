@@ -201,7 +201,7 @@ mega mega_isp: TARGET = mega
 mega mega_isp: MCU_TARGET = atmega1280
 mega mega_isp: AVR_FREQ = 16000000L 
 mega mega_isp: CFLAGS += '-DMAX_TIME_COUNT=F_CPU>>4' '-DNUM_LED_FLASHES=0' '-DBIGBOOT'
-mega mega_isp: CFLAGS += '-DLED_B=7' '-DLED_P=B'
+mega mega_isp: CFLAGS += '-DLED_B=7' '-DLED_P=B' '-DUART_P=E'
 ifeq ($(PROGRAM),optiboot)
 mega mega_isp: BAUD = $(OPTI_BAUD)
 mega mega_isp: LDSECTION  = 0x1Fc00

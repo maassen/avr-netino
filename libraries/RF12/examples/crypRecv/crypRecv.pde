@@ -1,6 +1,6 @@
 // Test encrypted communication, receiver side
 // 2010-02-21 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: crypRecv.pde 4833 2010-02-21 21:44:24Z jcw $
+// $Id$
 
 #include <RF12.h>
 #include <Ports.h>

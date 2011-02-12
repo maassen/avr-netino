@@ -1,6 +1,6 @@
 // Configure some values in EEPROM for easy config of the RF12 later on.
 // 2009-05-06 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: RF12demo.pde 6394 2010-12-10 19:25:04Z jcw $
+// $Id$
 
 // this version adds flash memory support, 2009-11-19
 

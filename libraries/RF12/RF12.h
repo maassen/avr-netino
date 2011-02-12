@@ -1,6 +1,6 @@
 // RFM12B driver definitions
 // 2009-02-09 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: RF12.h 6394 2010-12-10 19:25:04Z jcw $
+// $Id$
 
 #ifndef RF12_h
 #define RF12_h

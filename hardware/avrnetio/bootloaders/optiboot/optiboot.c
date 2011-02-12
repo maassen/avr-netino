@@ -144,9 +144,9 @@
 
 #include "stk500.h"
 
-#if defined ( LED_B ) && defined ( LED_P )
 #define _REG(x,y) _CAT(x,y)
 #define _CAT(x,y)  x##y
+#if defined ( LED_B ) && defined ( LED_P )
 #define LED_DDR  _REG(DDR,LED_P)
 #define LED_PORT _REG(PORT,LED_P)
 //#define LED_PIN  _REG(PIN,LED_P)
@@ -170,6 +170,7 @@
 #define BAUD_RATE 230400L
 #endif
 
+
 /* set the UART baud rate defaults */
 #ifndef BAUD_RATE
 #if F_CPU >= 8000000L
@@ -184,9 +185,31 @@
 #endif
 
 /* Switch in soft UART for hard baud rates */
-#if (F_CPU/BAUD_RATE) > 280 // > 57600 for 16MHz
+#if (F_CPU/BAUD_RATE) > 280 // < 57600 for 16MHz
 #ifndef SOFT_UART
 #define SOFT_UART
+#endif
+#endif
+
+/* Ports for soft UART */
+#ifdef SOFT_UART
+#ifndef UART_P
+#define UART_P	D
+#endif
+#ifndef UART_PORT
+#define UART_PORT   _REG(PORT,UART_P)
+#endif
+#ifndef UART_PIN
+#define UART_PIN    _REG(PIN,UART_P)
+#endif
+#ifndef UART_DDR
+#define UART_DDR    _REG(DDR,UART_P)
+#endif
+#ifndef UART_TX_BIT
+#define UART_TX_BIT 1
+#endif
+#ifndef UART_RX_BIT
+#define UART_RX_BIT 0
 #endif
 #endif
 
@@ -294,8 +317,6 @@ void appStart() __attribute__ ((naked));
 /* These definitions are NOT zero initialised, but that doesn't matter */
 /* This allows us to drop the zero init code, saving us memory */
 #define buff    ((uint8_t*)(RAMSTART))
-#define address (*(uint16_t*)(RAMSTART+SPM_PAGESIZE*2))
-#define length  (*(uint8_t*)(RAMSTART+SPM_PAGESIZE*2+2))
 #ifdef VIRTUAL_BOOT_PARTITION
 #define rstVect (*(uint16_t*)(RAMSTART+SPM_PAGESIZE*2+4))
 #define wdtVect (*(uint16_t*)(RAMSTART+SPM_PAGESIZE*2+6))
@@ -303,6 +324,13 @@ void appStart() __attribute__ ((naked));
 
 /* main program starts here */
 int main(void) {
+    /*
+     * Making these local and in registers prevents the need for initializing
+     * them, and also saves space because code no longer stores to memory.
+     */
+    register uint16_t address;
+    register uint8_t  length;
+
   // After the zero init loop, this is the first code to run.
   //
   // This code makes the following assumptions:
@@ -318,6 +346,11 @@ int main(void) {
   SP=RAMEND;  // This is done by hardware reset
   //#endif
 
+  /*
+   * Since we've supressed the normal startup code, we have to initialize
+   * A1 (__zero_reg__) so that it will contain 0 as expected.  Apparently
+   * there is no guarantee that GP regs are clear on either PWRUP or RST.
+   */
   asm volatile ("clr __zero_reg__");
 
   uint8_t ch;
@@ -409,7 +442,9 @@ int main(void) {
       uint8_t *bufPtr;
       uint16_t addrPtr;
 
-      getLen();
+	getch();			/* getlen() */
+	length = getch();
+	getch();
 
       // If we are in RWW section, immediately start page erase
       if (address < NRWWSTART) __boot_page_erase_short((uint16_t)(void*)address);
@@ -474,7 +509,11 @@ int main(void) {
     /* Read memory block mode, length is big endian.  */
     else if(ch == STK_READ_PAGE) {
       // READ PAGE - we only read flash
-      getLen();
+
+	getch();			/* getlen */
+	length = getch();
+	getch();
+
       verifySpace();
 #ifdef VIRTUAL_BOOT_PARTITION
       do {
@@ -653,12 +692,6 @@ void flash_led(uint8_t count) {
   } while (--count);
 }
 #endif
-
-uint8_t getLen() {
-  getch();
-  length = getch();
-  return getch();
-}
 
 // Watchdog functions. These are only safe with interrupts turned off.
 void watchdogReset() {

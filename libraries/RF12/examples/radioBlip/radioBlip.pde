@@ -1,6 +1,6 @@
 // Send out a radio packet every minute, consuming as little power as possible
 // 2010-08-29 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: radioBlip.pde 6540 2010-12-24 14:41:03Z jcw $
+// $Id$
 
 // all the low-power functions have been moved into the Ports library
 

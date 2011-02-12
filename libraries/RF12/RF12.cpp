@@ -1,6 +1,9 @@
 // RFM12B driver implementation
 // 2009-02-09 <jcw@equi4.com> http://opensource.org/licenses/mit-license.php
-// $Id: RF12.cpp 6548 2010-12-31 14:57:44Z jcw $
+//
+// 2011-02-12 <mic.maassen@gmail.com> patched for AVR-Net-IO (RFM_CS/more INTs)
+//	      http://avr-netino.googlecode.com/
+// $Id$
 
 #include "RF12.h"
 #include <avr/io.h>
@@ -13,9 +16,21 @@
 #define RF_MAX   (RF12_MAXDATA + 5)
 
 // pins used for the RFM12B interface
-#if defined(__AVR_ATmega1280__)
+#if defined (AVR_NET_IO)
+// get pin numbers
+#include <pins_arduino.h>
+#define RFM_IRQ     RFM12_IRQ	// the pin nr
+#define RFM_INT     RFM12_INR	// the interrupt nr
+#define RFM_CS	    RFM12_CS	// can be different from SPI_SS
+#define SPI_SS      SS
+#define SPI_MOSI    MOSI
+#define SPI_MISO    MISO
+#define SPI_SCK     SCK
+
+#elif defined(__AVR_ATmega1280__) ||  defined(__AVR_ATmega2560__)
 
 #define RFM_IRQ     2
+#define RFM_INT     0
 #define SS_PORT     PORTB
 #define SS_BIT      0
 #define SPI_SS      53
@@ -26,6 +41,7 @@
 #elif defined(__AVR_ATtiny84__)
 
 #define RFM_IRQ     2
+#define RFM_INT     0
 #define SS_PORT     PORTA
 #define SS_BIT      7
 #define SPI_SS      3
@@ -37,6 +53,7 @@
 
 // ATmega328, etc.
 #define RFM_IRQ     2
+#define RFM_INT     0
 #define SS_PORT     PORTB
 #define SS_BIT      2
 #define SPI_SS      10
@@ -45,6 +62,32 @@
 #define SPI_SCK     13
 
 #endif 
+
+static const uint8_t int_mask[] = {
+  INT0,
+#ifdef INT1
+  INT1,
+#endif
+#ifdef INT2
+  INT2,
+#endif
+#ifdef INT3
+  INT3,
+#endif
+#ifdef INT4
+  INT4,
+#endif
+#ifdef INT5
+  INT5,
+#endif
+#ifdef INT6
+  INT6,
+#endif
+#ifdef INT7
+  INT7,
+#endif
+};
+#define RFM_INT2BIT(I)	int_mask[(I)]
 
 // RF12 command codes
 #define RF_RECEIVER_ON  0x82DD
@@ -95,7 +138,12 @@ static uint32_t cryptKey[4];        // encryption key to use
 void (*crypter)(uint8_t);           // does en-/decryption (null if disabled)
 
 static void spi_initialize () {
+#ifdef RFM_CS
+    pinMode(RFM_CS, OUTPUT);
+    digitalWrite(RFM_CS, 1);
+#else
     digitalWrite(SPI_SS, 1);
+#endif
     pinMode(SPI_SS, OUTPUT);
     pinMode(SPI_MOSI, OUTPUT);
     pinMode(SPI_MISO, INPUT);
@@ -148,24 +196,37 @@ static uint8_t rf12_byte (uint8_t out) {
 }
 
 static uint16_t rf12_xfer (uint16_t cmd) {
+#if defined( SS_PORT ) && defined ( SS_BIT)
     bitClear(SS_PORT, SS_BIT);
+#else
+    // faster but more general
+    *(portOutputRegister(digitalPinToPort(RFM_CS))) &= 
+      ~digitalPinToBitMask(RFM_CS);
+#endif
     uint16_t reply = rf12_byte(cmd >> 8) << 8;
     reply |= rf12_byte(cmd);
+#if defined( SS_PORT ) && defined ( SS_BIT)
     bitSet(SS_PORT, SS_BIT);
+#else
+    // faster but more general
+    *(portOutputRegister(digitalPinToPort(RFM_CS))) |= 
+      digitalPinToBitMask(RFM_CS);
+#endif
     return reply;
 }
 
 // access to the RFM12B internal registers with interrupts disabled
 uint16_t rf12_control(uint16_t cmd) {
+  
 #ifdef EIMSK
-    bitClear(EIMSK, INT0);
+    bitClear(EIMSK, RFM_INT2BIT(RFM_INT));
     uint16_t r = rf12_xfer(cmd);
-    bitSet(EIMSK, INT0);
+    bitSet(EIMSK, RFM_INT2BIT(RFM_INT));
 #else
     // ATtiny
-    bitClear(GIMSK, INT0);
+    bitClear(GIMSK, RFM_INT2BIT(RFM_INT));
     uint16_t r = rf12_xfer(cmd);
-    bitSet(GIMSK, INT0);
+    bitSet(GIMSK, RFM_INT2BIT(RFM_INT));
 #endif
     return r;
 }
@@ -318,7 +379,7 @@ void rf12_initialize (uint8_t id, uint8_t band, uint8_t g) {
         rf12_xfer(0x0000);
         
     rf12_xfer(0x80C7 | (band << 4)); // EL (ena TX), EF (ena RX FIFO), 12.0pF 
-    rf12_xfer(0xA640); // 868MHz 
+    rf12_xfer(0xA640); // 868MHz or 434MHz
     rf12_xfer(0xC606); // approx 49.2 Kbps, i.e. 10000/29/(1+6) Kbps
     rf12_xfer(0x94A2); // VDI,FAST,134kHz,0dBm,-91dBm 
     rf12_xfer(0xC2AC); // AL,!ml,DIG,DQD4 
@@ -338,9 +399,9 @@ void rf12_initialize (uint8_t id, uint8_t band, uint8_t g) {
 
     rxstate = TXIDLE;
     if ((nodeid & NODE_ID) != 0)
-        attachInterrupt(0, rf12_interrupt, LOW);
+        attachInterrupt(RFM_INT, rf12_interrupt, LOW);
     else
-        detachInterrupt(0);
+        detachInterrupt(RFM_INT);
 }
 
 void rf12_onOff (uint8_t value) {
