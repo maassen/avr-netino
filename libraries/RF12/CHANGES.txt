@@ -1,17 +1,3 @@
-This change log is no longer maintained as a separate file. You can now browse
-all the source code and see all the changes and comments ever made on the web.
-
-The home page for this library, including its automatic change log, is:
-	http://jeelabs.net/projects/cafe/repository/show/RF12
-
-To check out the latest version, use subversion:
-	svn co svn://svn.jeelabs.org/jeelabs/trunk/libraries/RF12
-	
-For more information about subversion and source code from JeeLabs, see:
-	http://jeelabs.org/2010/12/15/subversion/
-	
---------------------------------------------------------------------------------
-
 2010-12 jcw
 
 * Added new RF12_WANTS_ACK and RF12_ACK_REPLY macros.

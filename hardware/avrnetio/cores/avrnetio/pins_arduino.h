@@ -28,7 +28,7 @@
 */
 
 #ifndef Pins_Arduino_h
-#define Pins_Arduino_h		0x20110119 /* Date: 2011-01-19 */
+#define Pins_Arduino_h		0x20110207 /* Date: 2011-01-19 */
 
 /* Hopfully this will be setable in future arduino ide's boards.txt */
 #ifndef BOARD_DEF
@@ -41,27 +41,31 @@ extern "C" {
 
 #include <avr/pgmspace.h>
 
-#define NOT_A_PIN 0
-#define NOT_A_PORT 0
+enum no_port_no_pin {
+  NOT_A_PIN = 255,
+  NOT_A_PORT = 255,
+};
 
-#define NOT_ON_TIMER 0
-#define TIMER0A 1
-#define TIMER0B 2
-#define TIMER1A 3
-#define TIMER1B 4
-#define TIMER2  5
-#define TIMER2A 6
-#define TIMER2B 7
+enum timer_names {
+  NOT_ON_TIMER,
+  TIMER0A,
+  TIMER0B,
+  TIMER1A,
+  TIMER1B,
+  TIMER2,
+  TIMER2A,
+  TIMER2B,
 
-#define TIMER3A 8
-#define TIMER3B 9
-#define TIMER3C 10
-#define TIMER4A 11
-#define TIMER4B 12
-#define TIMER4C 13
-#define TIMER5A 14
-#define TIMER5B 15
-#define TIMER5C 16
+  TIMER3A,
+  TIMER3B,
+  TIMER3C,
+  TIMER4A,
+  TIMER4B,
+  TIMER4C,
+  TIMER5A,
+  TIMER5B,
+  TIMER5C,
+};
 
   /* this enum maps avr pin functions to pin numbers */
 enum pins_function { 
@@ -94,8 +98,16 @@ enum arduino_compat {
 #undef defConstant
 #undef All_Constants
 
+#ifdef PORT_ADDR_TYPE
+/* defined in Makefile */
+#elif defined(__AVR_ATmega640__) || defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1281__) || defined(__AVR_ATmega2561__)
+#define PORT_ADDR_TYPE uint16_t
+#else
 #define PORT_ADDR_TYPE uint8_t
+#endif
+
 #define PINS_DATA_TYPE uint8_t
+
 extern const PORT_ADDR_TYPE PROGMEM port_to_mode_PGM[];
 extern const PORT_ADDR_TYPE PROGMEM port_to_input_PGM[];
 extern const PORT_ADDR_TYPE PROGMEM port_to_output_PGM[];

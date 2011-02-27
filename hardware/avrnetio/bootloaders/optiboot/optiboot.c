@@ -479,8 +479,14 @@ int main(void) {
         buff[9] = vect >> 8;
 
         // Add jump to bootloader at RESET vector
+#ifdef BOOT_SEC
+	// BOOT_START = boot loader start address in bytes
+	buff[0] = (BOOT_SEC>>1) & 0xff;
+	buff[1] = 0xc0 | (BOOT_SEC>>9);
+#else
         buff[0] = 0x7f;
         buff[1] = 0xce; // rjmp 0x1d00 instruction
+#endif
       }
 #endif
 

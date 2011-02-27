@@ -33,83 +33,66 @@
 // for the analog output (software PWM).  Analog input
 // pins are a separate set.
 
-#define PA 1
-#define PB 2
-#define PC 3
-#define PD 4
+enum ports {
+#ifdef PORTA
+  PA,
+#endif
+#ifdef PORTB
+  PB,
+#endif
+#ifdef PORTC
+  PC,
+#endif
+#ifdef PORTD
+  PD,
+#endif
+};
 
 // these arrays map port names (e.g. port B) to the
 // appropriate addresses for various functions (e.g. reading
 // and writing)
 const PORT_ADDR_TYPE PROGMEM port_to_mode_PGM[] = {
-	NOT_A_PORT,
-#ifdef DDRA
+#ifdef PORTA
 	&DDRA,
-#else
-	NOT_A_PORT,
-#endif
-#ifdef DDRB
+#endif 
+#ifdef PORTB
 	&DDRB,
-#else
-	NOT_A_PORT,
 #endif
-#ifdef DDRC
+#ifdef PORTC
 	&DDRC,
-#else
-	NOT_A_PORT,
 #endif
-#ifdef DDRD
+#ifdef PORTD
 	&DDRD,
-#else
-	NOT_A_PORT,
 #endif
 };
 
 const PORT_ADDR_TYPE PROGMEM port_to_output_PGM[] = {
-	NOT_A_PORT,
 #ifdef PORTA
 	&PORTA,
-#else
-	NOT_A_PORT,
 #endif
 #ifdef 	PORTB
 	&PORTB,
-#else
-	NOT_A_PORT,
 #endif
 #ifdef 	PORTC
 	&PORTC,
-#else
-	NOT_A_PORT,
 #endif
 #ifdef 	PORTD
 	&PORTD,
-#else
-	NOT_A_PORT,
 #endif
 };
 
 const PORT_ADDR_TYPE PROGMEM port_to_input_PGM[] = {
-	NOT_A_PORT,
-#ifdef 	PINA
+#ifdef 	PORTA
 	&PINA,
-#else
-	NOT_A_PORT,
 #endif
-#ifdef 	PINB
+#ifdef 	PORTB
 	&PINB,
-#else
-	NOT_A_PORT,
 #endif
-#ifdef 	PINC
+#ifdef 	PORTC
 	&PINC,
-#else
-	NOT_A_PORT,
 #endif
-#ifdef 	PIND
+#ifdef 	PORTD
 	&PIND,
-#else
-	NOT_A_PORT,
 #endif
 };
 
