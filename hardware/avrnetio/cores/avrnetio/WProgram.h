@@ -25,7 +25,7 @@
  *
  **********************************************************/
 #ifndef WProgram_h
-#define WProgram_h
+#define WProgram_h	0x20110510
 
 /* Hopfully this will be setable in future arduino ide's boards.txt */
 #ifndef BOARD_DEF
@@ -65,11 +65,12 @@ long map(long, long, long, long, long);
 extern "C" {
 #endif // __cplusplus
 
+enum pin_usage {
 #define pinDef(P,B,T,F,U,...) U,
-  enum pin_usage {
 #include BOARD_DEF
-  };
 #undef pinDef
+  NUMBER_OF_PINS
+};
 
 #ifdef __cplusplus
 }

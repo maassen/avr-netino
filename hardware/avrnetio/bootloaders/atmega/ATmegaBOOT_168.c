@@ -115,6 +115,11 @@
 #define _REG(x,y) _CAT(x,y)
 #define _CAT(x,y)  x##y
 
+
+/* if defined BL_INFINITY a present bootloader jumper will skip the timeout */
+/* if BL_INFINITY is undefined, a present jumper will skip the bootloader */
+#define BL_INFINITY	1
+
 /* Adjust to suit whatever pin your hardware uses to enter the bootloader */
 /* ATmega128 has two UARTS so two pins are used to enter bootloader and select UART */
 /* ATmega1280 has four UARTS, but for Arduino Mega, we will only use RXD0 to get code */
@@ -386,7 +391,7 @@ int main(void)
 		app_start();
 	}
 #endif
-#ifdef BL
+#if defined( BL ) && !defined( BL_INFINITY )
 	/* check if bootloader pin is set low */
 	/* we don't start this part neither for the m8, nor m168 */
 	if(!bit_is_set(BL_PIN, BL)) {
@@ -1016,6 +1021,10 @@ char getch(void)
 		while(!(UCSR1A & _BV(RXC1))) {
 			/* 20060803 DojoCorp:: Addon coming from the previous Bootloader*/               
 			/* HACKME:: here is a good place to count times*/
+#if defined( BL ) && defined( BL_INFINITY )
+		        /* if jumper is present, we don't increment */
+		        if (bit_is_set(BL_PIN, BL))
+#endif
 			count++;
 			if (count > MAX_TIME_COUNT)
 				app_start();
@@ -1028,6 +1037,10 @@ char getch(void)
 		while(!(UCSR0A & _BV(RXC0))) {
 			/* 20060803 DojoCorp:: Addon coming from the previous Bootloader*/               
 			/* HACKME:: here is a good place to count times*/
+#if defined( BL ) && defined( BL_INFINITY )
+		        /* if jumper is present, we don't increment */
+		        if (bit_is_set(BL_PIN, BL))
+#endif
 			count++;
 			if (count > MAX_TIME_COUNT)
 				app_start();
@@ -1041,6 +1054,10 @@ char getch(void)
 	while(!(UCSRA & _BV(RXC))){
 		/* 20060803 DojoCorp:: Addon coming from the previous Bootloader*/               
 		/* HACKME:: here is a good place to count times*/
+#if defined( BL ) && defined( BL_INFINITY )
+	        /* if jumper is present, we don't increment */
+	        if (bit_is_set(BL_PIN, BL))
+#endif
 		count++;
 		if (count > MAX_TIME_COUNT)
 			app_start();

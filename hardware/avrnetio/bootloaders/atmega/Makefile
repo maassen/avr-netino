@@ -46,12 +46,16 @@ ISPSPEED   = -b 115200
 LOCK = 3f
 ULOCK = 0f
 
-ISPFUSES    = avrdude -c $(ISPTOOL) -p $(MCU_TARGET) -P $(ISPPORT) $(ISPSPEED) \
--e -u -U lock:w:0x$(strip $(ULOCK)):m \
+# some ATtiny cannot read lock bits
+ISPUNLOCK = avrdude -c $(ISPTOOL) -p $(MCU_TARGET) -P $(ISPPORT) $(ISPSPEED) \
+-e -u -V -U lock:w:0x$(strip $(ULOCK)):m 
+ISPFUSES  = avrdude -c $(ISPTOOL) -p $(MCU_TARGET) -P $(ISPPORT) $(ISPSPEED) \
 $(if $(EFUSE), -U efuse:w:0x$(strip $(EFUSE)):m) \
 -U hfuse:w:0x$(strip $(HFUSE)):m -U lfuse:w:0x$(strip $(LFUSE)):m
-ISPFLASH    = avrdude -c $(ISPTOOL) -p $(MCU_TARGET) -P $(ISPPORT) $(ISPSPEED) \
--U flash:w:$(PROGRAM)_$(TARGET).hex -U lock:w:0x$(strip $(LOCK)):m
+ISPFLASH  = avrdude -c $(ISPTOOL) -p $(MCU_TARGET) -P $(ISPPORT) $(ISPSPEED) \
+-D -U flash:w:$(PROGRAM)_$(TARGET).hex
+ISPLOCK   = avrdude -c $(ISPTOOL) -p $(MCU_TARGET) -P $(ISPPORT) $(ISPSPEED) \
+ -V -U lock:w:0x$(strip $(LOCK)):m
 
 STK500 = "C:\Program Files\Atmel\AVR Tools\STK500\Stk500.exe"
 STK500-1 = $(STK500) -e -d$(MCU_TARGET) -pf -vf -if$(PROGRAM)_$(TARGET).hex \
@@ -67,12 +71,17 @@ DEFS       = '-DBOOT_SEC=$(LDSECTION)'
 LIBS       =
 
 ifneq ($(windir),)
-CC         = ..\..\..\tools\avr\bin\avr-gcc
-OBJSIZE    = ..\..\..\tools\avr\bin\avr-size
-OBJCOPY    = ..\..\..\tools\avr\bin\avr-objcopy
-OBJDUMP    = ..\..\..\tools\avr\bin\avr-objdump
-AWK        = ..\..\..\tools\avr\utils\bin\gawk
+ifeq ($(ARDUINO_DIR),)
+ARDUINO_DIR = ..\..\..\..
+endif
+# we are on windows
+CC         = $(ARDUINO_DIR)\hardware\tools\avr\bin\avr-gcc
+OBJSIZE    = $(ARDUINO_DIR)\hardware\tools\avr\bin\avr-size
+OBJCOPY    = $(ARDUINO_DIR)\hardware\tools\avr\bin\avr-objcopy
+OBJDUMP    = $(ARDUINO_DIR)\hardware\tools\avr\bin\avr-objdump
+AWK        = $(ARDUINO_DIR)\hardware\tools\avr\utils\bin\gawk
 else
+# good old un*x system :-)
 CC         = avr-gcc
 OBJSIZE    = avr-size
 OBJCOPY    = avr-objcopy
@@ -106,12 +115,31 @@ override LDFLAGS       = -Wl,--section-start=.text=$(LDSECTION)
 OPTIMIZE   = -O2
 endif
 
-
+# AVR-Net-IO with different CPUs
 ANIO = anio32 anio644 anio644p anio1284p anio16 anio164p anio324p
-ARDUINOx8 = duemilanove diecimila ng ng8 ng88 lilypad
-ATTINY = luminet
-ALL = $(ANIO) $(ARDUINOx8) $(ATTINY) mega 
+# standard ARDUINO boards with ATmega*8 CPUs at 16MHz
+ARDUINOx8 = duemilanove diecimila ng ng8 ng88 
+# small ARDUINO boards with ATmega*8 CPUs using internal RC oszillator
+ARDUINOx8RC = lilypad 
+# ARDUINO Mega boards
+ARDUINO_MEGA = mega
+# all arduino
+ARDUINO = $(ARDUINOx8) $(ARDUINOx8RC) $(ARDUINO_MEGA)
+# pure ATtiny chips
+TINY = tiny25 tiny45 tiny44
+# all tinys
+ATTINY = luminet $(TINY)
+# all boards
+ALL = $(ANIO) $(ARDUINO) $(ATTINY)  
+
+IHEX_AWK = 'BEGIN {c=0;s=0;v=""}; {c+=1;s+=$$0;v=sprintf("%s%02X",v,$$0)}; END {s+=c+A%256+int(A/256)+T; printf (":%02X%04X%02X%s%02X\n",c,A,T,v,(256-(s%256))) };'
+RJMP_AWK = '{x=strtonum($$0)/2-1+0xC000;printf("%i %i",int(x/256),x%256)}'
 anio: $(ANIO)
+
+arduino8: $(ARDUINOx8)
+
+tiny: $(TINY)
+
 all: $(ALL)
 
 #all:
@@ -120,12 +148,14 @@ all: $(ALL)
 ############################################################
 # Arduino w/ ATmega*8
 ############################################################
+$(ARDUINOx8) $(ARDUINOx8:%=%_isp): AVR_FREQ = 16000000L
+$(ARDUINOx8) $(ARDUINOx8:%=%_isp): CFLAGS +=  '-DLED_B=5' '-DLED_P=B' '-DNUM_LED_FLASHES=1'
+$(ARDUINOx8) $(ARDUINOx8:%=%_isp):
+
 # Arduino w/ ATmega168@16MHz auto-reset 
 diecimila diecimila_isp: TARGET = diecimila
 diecimila diecimila_isp: MCU_TARGET = atmega168
-diecimila diecimila_isp: AVR_FREQ = 16000000L 
-diecimila diecimila_isp: CFLAGS += '-DMAX_TIME_COUNT=F_CPU>>4' '-DNUM_LED_FLASHES=1'
-diecimila diecimila_isp: CFLAGS +=  '-DLED_B=5' '-DLED_P=B'
+diecimila diecimila_isp: CFLAGS += '-DMAX_TIME_COUNT=F_CPU>>4' 
 diecimila diecimila_isp: BAUD = $(if $(OPTI_BAUD),$(OPTI_BAUD),19200)
 ifeq ($(PROGRAM),optiboot)
 diecimila diecimila_isp: LDSECTION  = 0x3e00
@@ -137,12 +167,25 @@ endif
 diecimila diecimila_isp: LFUSE = FF
 diecimila diecimila_isp: HFUSE = DD
 
+# Arduino w/ ATmega328@16MHz auto-reset 
+duemilanove duemilanove_isp: TARGET = duemilanove
+duemilanove duemilanove_isp: MCU_TARGET = atmega328p
+duemilanove duemilanove_isp: CFLAGS+= '-DMAX_TIME_COUNT=F_CPU>>4' 
+duemilanove duemilanove_isp: BAUD = $(if $(OPTI_BAUD),$(OPTI_BAUD),57600)
+ifeq ($(PROGRAM),optiboot)
+duemilanove duemilanove_isp: LDSECTION  = 0x7e00
+duemilanove duemilanove_isp: HFUSE = DE
+else
+duemilanove duemilanove_isp: LDSECTION  = 0x7800
+duemilanove duemilanove_isp: HFUSE = DA
+endif
+duemilanove duemilanove_isp: LFUSE = FF
+duemilanove duemilanove_isp: EFUSE = FD # 05
+
 # Arduino w/ ATmega168@16MHz w/o auto-reset 
 ng ng_isp: TARGET = ng
 ng ng_isp: MCU_TARGET = atmega168
-ng ng_isp: AVR_FREQ = 16000000L
-ng ng_isp: CFLAGS += '-DMAX_TIME_COUNT=F_CPU>>1' '-DNUM_LED_FLASHES=3' 
-ng ng_isp: CFLAGS += '-DLED_B=5' '-DLED_P=B'
+ng ng_isp: CFLAGS += '-DMAX_TIME_COUNT=F_CPU>>1'
 ng ng_isp: BAUD = $(if $(OPTI_BAUD),$(OPTI_BAUD),19200)
 ifeq ($(PROGRAM),optiboot)
 ng ng_isp: LDSECTION  = 0x3e00
@@ -158,7 +201,7 @@ ng ng_isp: HFUSE = DD
 ng8 ng8_isp: TARGET = ng8
 ng8 ng8_isp: MCU_TARGET = atmega8
 ng8 ng8_isp: AVR_FREQ = 16000000L
-ng8 ng8_isp: CFLAGS += '-DMAX_TIME_COUNT=F_CPU>>1' '-DNUM_LED_FLASHES=3' 
+ng8 ng8_isp: CFLAGS += '-DMAX_TIME_COUNT=F_CPU>>1' 
 ng8 ng8_isp: CFLAGS += '-DLED_B=5' '-DLED_P=B'
 ng8 ng8_isp: BAUD = $(if $(OPTI_BAUD),$(OPTI_BAUD),19200)
 ifeq ($(PROGRAM),optiboot)
@@ -173,9 +216,7 @@ ng8 ng8_isp: LFUSE = BF
 # Arduino w/ ATmega8@16MHz w/o auto-reset 
 ng88 ng88_isp: TARGET = ng88
 ng88 ng88_isp: MCU_TARGET = atmega8
-ng88 ng88_isp: AVR_FREQ = 16000000L
-ng88 ng88_isp: CFLAGS += '-DMAX_TIME_COUNT=F_CPU>>1' '-DNUM_LED_FLASHES=3'
-ng88 ng88_isp: CFLAGS += '-DLED_B=5' '-DLED_P=B'
+ng88 ng88_isp: CFLAGS += '-DMAX_TIME_COUNT=F_CPU>>1' 
 ng88 ng88_isp: BAUD = $(if $(OPTI_BAUD),$(OPTI_BAUD),19200)
 ifeq ($(PROGRAM),optiboot)
 ng88 ng88_isp: LDSECTION  = 0x1e00
@@ -187,6 +228,9 @@ endif
 ng88 ng88_isp: LFUSE = FF
 ng88 ng88_isp: HFUSE = DD
 
+############################################################
+# Arduino 8 MHz (RC)
+############################################################
 # Arduino w/ ATmega168@8MHz w/o auto-reset 
 lilypad lilypad_isp: TARGET = lilypad
 lilypad lilypad_isp: MCU_TARGET = atmega168
@@ -203,23 +247,6 @@ lilypad lilypad_isp: EFUSE = 00
 endif
 lilypad lilypad_isp: LFUSE = E2
 lilypad lilypad_isp: HFUSE = DD
-
-# Arduino w/ ATmega328@16MHz auto-reset 
-duemilanove duemilanove_isp: TARGET = duemilanove
-duemilanove duemilanove_isp: MCU_TARGET = atmega328p
-duemilanove duemilanove_isp: AVR_FREQ = 16000000L 
-duemilanove duemilanove_isp: CFLAGS+= '-DMAX_TIME_COUNT=F_CPU>>4' '-DNUM_LED_FLASHES=1' 
-duemilanove duemilanove_isp: CFLAGS += '-DLED_B=5' '-DLED_P=B'
-duemilanove duemilanove_isp: BAUD = $(if $(OPTI_BAUD),$(OPTI_BAUD),57600)
-ifeq ($(PROGRAM),optiboot)
-duemilanove duemilanove_isp: LDSECTION  = 0x7e00
-duemilanove duemilanove_isp: HFUSE = DE
-else
-duemilanove duemilanove_isp: LDSECTION  = 0x7800
-duemilanove duemilanove_isp: HFUSE = DA
-endif
-duemilanove duemilanove_isp: LFUSE = FF
-duemilanove duemilanove_isp: EFUSE = FD # 05
 
 ############################################################
 # Arduino Megas
@@ -244,18 +271,17 @@ mega mega_isp: EFUSE = F5
 ############################################################
 # AVR-Net-IO w/ ATmega16/32/*4
 ############################################################
-CFLAGS_ANIO  = '-DMAX_TIME_COUNT=F_CPU>>4' '-DNUM_LED_FLASHES=1'
-#CFLAGS_ANIO += '-DLED_B=1' '-DLED_P=B' # led at BL jumper
-CFLAGS_ANIO += '-DLED_B=6' '-DLED_P=D' # LED3
-#CFLAGS_ANIO += '-DBL_B=1' '-DBL_P=B' # BL JMP
-LDFLAGS_ANIO =
+$(ANIO) $(ANIO:%=%_isp): AVR_FREQ = 16000000L
+$(ANIO) $(ANIO:%=%_isp): BAUD = $(if $(OPTI_BAUD),$(OPTI_BAUD),57600)
+$(ANIO) $(ANIO:%=%_isp): CFLAGS += '-DMAX_TIME_COUNT=F_CPU>>4' '-DNUM_LED_FLASHES=1'
+$(ANIO) $(ANIO:%=%_isp): #CFLAGS += '-DLED_B=1' '-DLED_P=B' # led at BL jumper
+$(ANIO) $(ANIO:%=%_isp): CFLAGS += '-DLED_B=6' '-DLED_P=D' # LED3
+$(ANIO) $(ANIO:%=%_isp): CFLAGS += '-DBL_B=1' '-DBL_P=B' # BL JMP
+$(ANIO) $(ANIO:%=%_isp): LDFLAGS +=
+
 ### AVR-Net-IO w/ ATmega32@16MHz auto-reset
 anio32 anio32_isp: TARGET = anio32
 anio32 anio32_isp: MCU_TARGET = atmega32
-anio32 anio32_isp: AVR_FREQ = 16000000L 
-anio32 anio32_isp: CFLAGS += $(CFLAGS_ANIO)
-anio32 anio32_isp: LDFLAGS += $(LDFLAGS_ANIO)
-anio32 anio32_isp: BAUD = $(if $(OPTI_BAUD),$(OPTI_BAUD),57600)
 ifeq ($(PROGRAM),optiboot)
 anio32 anio32_isp: LDSECTION  = 0x7e00
 anio32 anio32_isp: HFUSE = DE
@@ -271,10 +297,6 @@ anio32 anio32_isp: LFUSE = BF
 ### AVR-Net-IO w/ ATmega16@16MHz auto-reset
 anio16 anio16_isp: TARGET = anio16
 anio16 anio16_isp: MCU_TARGET = atmega16
-anio16 anio16_isp: AVR_FREQ = 16000000L 
-anio16 anio16_isp: BAUD = $(if $(OPTI_BAUD),$(OPTI_BAUD),57600)
-anio16 anio16_isp: CFLAGS += $(CFLAGS_ANIO)
-anio16 anio16_isp: LDFLAGS += $(LDFLAGS_ANIO)
 ifeq ($(PROGRAM),optiboot)
 anio16 anio16_isp: LDSECTION  = 0x3e00
 anio16 anio16_isp: HFUSE = DC
@@ -287,10 +309,6 @@ anio16 anio16_isp: LFUSE = BF
 ### AVR-Net-IO w/ ATmega164p@16MHz auto-reset
 anio164p anio164p_isp: TARGET = anio164p
 anio164p anio164p_isp: MCU_TARGET = atmega164p
-anio164p anio164p_isp: AVR_FREQ = 16000000L 
-anio164p anio164p_isp: BAUD = $(if $(OPTI_BAUD),$(OPTI_BAUD),57600)
-anio164p anio164p_isp: CFLAGS += $(CFLAGS_ANIO)
-anio164p anio164p_isp: LDFLAGS += $(LDFLAGS_ANIO)
 ifeq ($(PROGRAM),optiboot)
 anio164p anio164p_isp: LDSECTION  = 0x3e00
 anio164p anio164p_isp: HFUSE = DC
@@ -304,10 +322,6 @@ anio164p anio164p_isp: EFUSE = FD # 05
 ### AVR-Net-IO w/ ATmega324p@16MHz auto-reset
 anio324p anio324p_isp: TARGET = anio324p
 anio324p anio324p_isp: MCU_TARGET = atmega324p
-anio324p anio324p_isp: AVR_FREQ = 16000000L 
-anio324p anio324p_isp: BAUD = $(if $(OPTI_BAUD),$(OPTI_BAUD),57600)
-anio324p anio324p_isp: CFLAGS += $(CFLAGS_ANIO)
-anio324p anio324p_isp: LDFLAGS += $(LDFLAGS_ANIO)
 ifeq ($(PROGRAM),optiboot)
 anio324p anio324p_isp: LDSECTION  = 0x7e00
 anio324p anio324p_isp: HFUSE = DE
@@ -321,10 +335,6 @@ anio324p anio324p_isp: EFUSE = FD # 05
 ### AVR-Net-IO w/ ATmega644@16MHz auto-reset
 anio644 anio644_isp: TARGET = anio644
 anio644 anio644_isp: MCU_TARGET = atmega644
-anio644 anio644_isp: AVR_FREQ = 16000000L 
-anio644 anio644_isp: BAUD = $(if $(OPTI_BAUD),$(OPTI_BAUD),57600)
-anio644 anio644_isp: CFLAGS += $(CFLAGS_ANIO)
-anio644 anio644_isp: LDFLAGS += $(LDFLAGS_ANIO)
 ifeq ($(PROGRAM),optiboot)
 anio644 anio644_isp: CFLAGS +=  -DBIG_BOOT 
 anio644 anio644_isp: LDSECTION  = 0xfc00
@@ -339,10 +349,6 @@ anio644 anio644_isp: EFUSE = FD # 05
 ### AVR-Net-IO w/ ATmega644p@16MHz auto-reset
 anio644p anio644p_isp: TARGET = anio644p
 anio644p anio644p_isp: MCU_TARGET = atmega644p
-anio644p anio644p_isp: AVR_FREQ = 16000000L 
-anio644p anio644p_isp: BAUD = $(if $(OPTI_BAUD),$(OPTI_BAUD),57600)
-anio644p anio644p_isp: CFLAGS += $(CFLAGS_ANIO)
-anio644p anio644p_isp: LDFLAGS += $(LDFLAGS_ANIO)
 ifeq ($(PROGRAM),optiboot)
 anio644p anio644p_isp: CFLAGS += -DBIG_BOOT 
 anio644p anio644p_isp: LDSECTION  = 0xfc00
@@ -357,16 +363,12 @@ anio644p anio644p_isp: EFUSE = FD # 05
 ### AVR-Net-IO w/ ATmega1284p@16MHz auto-reset
 anio1284p anio1284p_isp: TARGET = anio1284p
 anio1284p anio1284p_isp: MCU_TARGET = atmega1284p
-anio1284p anio1284p_isp: AVR_FREQ = 16000000L 
-anio1284p anio1284p_isp: BAUD = $(if $(OPTI_BAUD),$(OPTI_BAUD),57600)
-anio1284p anio1284p_isp: CFLAGS += $(CFLAGS_ANIO)
-anio1284p anio1284p_isp: LDFLAGS += $(LDFLAGS_ANIO)
 ifeq ($(PROGRAM),optiboot)
 anio1284p anio1284p_isp: CFLAGS += -DBIG_BOOT 
 anio1284p anio1284p_isp: LDSECTION  = 0x1fc00
 anio1284p anio1284p_isp: HFUSE = DE
 else
-anio1284p anio1284p_isp: CFLAGS += '-DHAVE_EEPROM_PAGED_ACCESS=0' -Os
+anio1284p anio1284p_isp: CFLAGS += '-DHAVE_EEPROM_BYTE_ACCESS=0' -Os
 anio1284p anio1284p_isp: LDSECTION  = 0x1F800
 anio1284p anio1284p_isp: HFUSE = DC
 endif
@@ -394,14 +396,58 @@ luminet luminet_isp: LFUSE = 62 # 1MHz internal oscillator, slowly rising power
 luminet luminet_isp: EFUSE = FE # Self-programming enable
 
 ############################################################
+# ATtiny (8MHz clocked platforms)
+############################################################
+$(TINY) $(TINY:%=%_isp): AVR_FREQ = 8000000L
+$(TINY) $(TINY:%=%_isp): CFLAGS += '-DSOFT_UART' '-DBAUD_RATE=9600'
+$(TINY) $(TINY:%=%_isp): CFLAGS += '-DVIRTUAL_BOOT_PARTITION'
+$(TINY) $(TINY:%=%_isp): BAUD = 9600
+
+tiny25 tiny25_isp: TARGET = tiny25
+tiny25 tiny25_isp: MCU_TARGET = attiny25
+tiny25 tiny25_isp: CFLAGS += '-DUART_P=B'
+ifeq ($(PROGRAM),optiboot)
+tiny25 tiny25_isp: LDSECTION  = 0x580 
+else
+endif
+tiny25 tiny25_isp: HFUSE = DF # Brownout disabled
+tiny25 tiny25_isp: LFUSE = 62 # 1MHz internal oscillator, slowly rising power
+tiny25 tiny25_isp: EFUSE = FE # Self-programming enable
+tiny25 tiny25_isp: PREDAT = $(shell echo $(LDSECTION)|$(AWK) $(RJMP_AWK))
+
+tiny45 tiny45_isp: TARGET = tiny45
+tiny45 tiny45_isp: MCU_TARGET = attiny45
+tiny45 tiny45_isp: CFLAGS += '-DUART_P=B'
+ifeq ($(PROGRAM),optiboot)
+tiny45 tiny45_isp: LDSECTION  = 0xd80 
+else
+endif
+tiny45 tiny45_isp: HFUSE = DF # Brownout disabled
+tiny45 tiny45_isp: LFUSE = 62 # 1MHz internal oscillator, slowly rising power
+tiny45 tiny45_isp: EFUSE = FE # Self-programming enable
+
+tiny44 tiny44_isp: TARGET = tiny44
+tiny44 tiny44_isp: MCU_TARGET = attiny44
+tiny44 tiny44_isp: CFLAGS += '-DUART_P=B'
+ifeq ($(PROGRAM),optiboot)
+tiny44 tiny44_isp: LDSECTION  = 0xd80 
+else
+endif
+tiny44 tiny44_isp: HFUSE = DF # Brownout disabled
+tiny44 tiny44_isp: LFUSE = 62 # 1MHz internal oscillator, slowly rising power
+tiny44 tiny44_isp: EFUSE = FE # Self-programming enable
+
+############################################################
 # machine room
 ############################################################
 $(ALL):%:$(PROGRAM)_%.hex $(PROGRAM)_%.boards.txt
 $(ALL:%=%_isp):%_isp: % isp
 
 isp: $(TARGET)
+	$(ISPUNLOCK)
 	$(ISPFUSES)
 	$(ISPFLASH)
+	$(ISPLOCK)
 
 isp-stk500: $(PROGRAM)_$(TARGET).hex
 	$(STK500-1)
@@ -423,6 +469,7 @@ clean:
 
 %.hex: %.elf
 	$(OBJCOPY) -j .text -j .data -O ihex $< $@
+	$(if $(PREDAT),(echo $(PREDAT)|$(AWK) -v RS=" " $(IHEX_AWK); cat $@) > $@.tmp && mv $@.tmp $@)
 
 %.srec: %.elf
 	$(OBJCOPY) -j .text -j .data -O srec $< $@

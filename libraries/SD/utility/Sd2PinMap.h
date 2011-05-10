@@ -36,11 +36,14 @@ uint8_t const MOSI_PIN = MOSI;
 uint8_t const MISO_PIN = MISO;
 uint8_t const SCK_PIN = SCK;
 //------------------------------------------------------------------------------
+#ifdef BOARD_DEF		/* avrnetio core */
+static const uint8_t digitalPinCount = NOT_A_PIN;
+#else
 static const uint8_t digitalPinCount = (
 	(digital_pin_to_timer_PGM-digital_pin_to_bit_mask_PGM) == 
 	(digital_pin_to_bit_mask_PGM-digital_pin_to_port_PGM) ? 
 	(digital_pin_to_bit_mask_PGM-digital_pin_to_port_PGM) : 0);
-
+#endif
 uint8_t badPinNumber(void)
   __attribute__((error("Pin number is too large or not a constant")));
 

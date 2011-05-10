@@ -1,0 +1,168 @@
+/********************************************-*- mode:c -*-
+ * board_avrnetio.h
+ * this file contains all board specific definitions
+ * not the cpu spcific ones!
+ *
+ *  Part of AVR-Netino - http://code.google.com/p/avr-netino/
+ *
+ * Copyright (c) 2011 Michael Maassen
+ * 
+ * 2011-02-08:	port from Sanguino.cc to avr-netino 
+ *		by M.Maassen <mic.maassen@gmail.com>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version, or
+ * 
+ * under the terms of the  Common Development and Distribution License (CDDL) 
+ * version 1, see http://www.opensource.org/licenses/cddl1.php
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General
+ * Public License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
+ * Boston, MA  02111-1307  USA
+ *
+ * $Id$
+ *
+ ************************************************************
+ * you must define one of the folowing macros to 
+ * use this file:
+ *
+ * Names for special pins or hardware constants:
+ *   -  as const static:
+ *      #define defConstant(N,V) const static uint8_t N = V;
+ *   -  as enum element, inside: enum xxx { ... };
+ *      #define defConstant(N,V) N = V,
+ * defConstants		get all pin fuctions by names
+ *
+ * pinDef(p,b,t,f,u,...)	define a pin by port,bit,timer,function,usage...
+ *   - all in 1 byte (for m168/m328/m32/m644(p)
+ *     #define pinDef(p,b,t,...)	((((P##p)-1)<<5) | (b) | ((t)<<3))
+ *   - all in 2 byte (for m1280/m2560
+ *     #define pinDef(p,b,t,...)	((((P##p)-1)<<8) | (b) | ((t)<<3))
+ *   - only port for digital_pin_to_port_PGM[]
+ *     #define pinDef(p,...)	(P##p)
+ *   - only bit mask for digital_pin_to_bit_mask_PGM[]
+ *     #define pinDef(p,b,...)	_BV(b)
+ *   - only timer for digital_pin_to_timer_PGM[]
+ *     #define pinDef(p,b,t,...)	(t)
+ *   - all in struct pin_map_t { } for (SdFat/Sd2PinMap.h)
+ *     #define pinDef(p,b,t,...)	{&DDR##p, &PIN##p, &PORT##p, b},
+ *
+ ***********************************************************
+ * Board:	Sanguino	from sanguino.cc
+ * On the Sanguino board, digital pins are also used
+ * for the analog output (software PWM).  Analog input
+ * pins are a separate set.
+
+ * ATMEL ATMEGA644P / SANGUINO
+ *
+ *                   +---\/---+
+ *  INT0 (D 0) PB0  1|        |40  PA0 (AI 0 / D31)
+ *  INT1 (D 1) PB1  2|        |39  PA1 (AI 1 / D30)
+ *  INT2 (D 2) PB2  3|        |38  PA2 (AI 2 / D29)
+ *   PWM (D 3) PB3  4|        |37  PA3 (AI 3 / D28)
+ *   PWM (D 4) PB4  5|        |36  PA4 (AI 4 / D27)
+ *  MOSI (D 5) PB5  6|        |35  PA5 (AI 5 / D26)
+ *  MISO (D 6) PB6  7|        |34  PA6 (AI 6 / D25)
+ *   SCK (D 7) PB7  8|        |33  PA7 (AI 7 / D24)
+ *             RST  9|        |32  AREF
+ *             VCC 10|        |31  GND 
+ *             GND 11|        |30  AVCC
+ *           XTAL2 12|        |29  PC7 (D 23)
+ *           XTAL1 13|        |28  PC6 (D 22)
+ *  RX0 (D 8)  PD0 14|        |27  PC5 (D 21) TDI
+ *  TX0 (D 9)  PD1 15|        |26  PC4 (D 20) TDO
+ *  RX1 (D 10) PD2 16|        |25  PC3 (D 19) TMS
+ *  TX1 (D 11) PD3 17|        |24  PC2 (D 18) TCK
+ *  PWM (D 12) PD4 18|        |23  PC1 (D 17) SDA
+ *  PWM (D 13) PD5 19|        |22  PC0 (D 16) SCL
+ *  PWM (D 14) PD6 20|        |21  PD7 (D 15) PWM
+ *                   +--------+
+ *
+ ***********************************************************/
+
+/***********************************************************
+ * things we want allways 
+ ***********************************************************/
+// we define AVR_NET_IO to flag different pinnig to libraries
+#ifndef SANGUINO
+#define SANGUINO	0x20110208	/* Date 2011-02-08 */
+#endif
+
+#ifdef pinDef
+/***********************************************************
+ * mapping from pin number to Port,Bit,Timer(PWM),...
+ ***********************************************************/
+/* 0 */
+pinDef( B, 0 , NOT_ON_TIMER,T0,IR_Rx)
+pinDef( B, 1 , NOT_ON_TIMER,T1,JUMP_PROG)
+pinDef( B, 2 , NOT_ON_TIMER,INT2,ENC28J60_IRQ)
+pinDef( B, 3 , TIMER0A,OC0,SDcard_CS)
+#ifdef COM0B1
+pinDef( B, 4 , TIMER0B,SS,ENC28J60_CS)
+#else
+pinDef( B, 4 , NOT_ON_TIMER,SS,ENC28J60_CS)
+#endif
+pinDef( B, 5 , NOT_ON_TIMER,MOSI,SPI_MOSI)
+pinDef( B, 6 , NOT_ON_TIMER,MISO,SPI_MISO)
+pinDef( B, 7 , NOT_ON_TIMER,SCK,SPI_SCK)
+/* 8 */
+pinDef( D, 0 , NOT_ON_TIMER,RXD,RS232_RxD)
+pinDef( D, 1 , NOT_ON_TIMER,TXD,RS232_TxD)
+pinDef( D, 2 , NOT_ON_TIMER,INT0,LED_1)
+pinDef( D, 3 , NOT_ON_TIMER,INT1,RFM12_IRQ)
+pinDef( D, 4 , TIMER1B,OC1B,LED_2)
+pinDef( D, 5 , TIMER1A,OC1A,RFM12_CS)
+#ifdef COM21
+pinDef( D, 6 , NOT_ON_TIMER,ICP1,LED_3)
+pinDef( D, 7 , TIMER2,OC2,SDcard_INS)
+#else
+pinDef( D, 6 , TIMER2B,OC2B,LED_3)
+pinDef( D, 7 , TIMER2A,OC2A,SDcard_INS)
+#endif
+/* 16 */
+pinDef( C, 0 , NOT_ON_TIMER,SCL,J3_2)
+pinDef( C, 1 , NOT_ON_TIMER,SDA,J3_3)
+pinDef( C, 2 , NOT_ON_TIMER,TCK,J3_4)
+pinDef( C, 3 , NOT_ON_TIMER,TMS,J3_5)
+pinDef( C, 4 , NOT_ON_TIMER,TDO,J3_6)
+pinDef( C, 5 , NOT_ON_TIMER,TDI,J3_7)
+pinDef( C, 6 , NOT_ON_TIMER,TOSC1,J3_8)
+pinDef( C, 7 , NOT_ON_TIMER,TOSC2,J3_9)
+/* 24 */
+pinDef( A, 7 , NOT_ON_TIMER,ADC7,ADC_4)
+pinDef( A, 6 , NOT_ON_TIMER,ADC6,ADC_3)
+pinDef( A, 5 , NOT_ON_TIMER,ADC5,ADC_2)
+pinDef( A, 4 , NOT_ON_TIMER,ADC4,ADC_1)
+pinDef( A, 3 , NOT_ON_TIMER,ADC3,A3)
+pinDef( A, 2 , NOT_ON_TIMER,ADC2,A2)
+pinDef( A, 1 , NOT_ON_TIMER,ADC1,A1)
+pinDef( A, 0 , NOT_ON_TIMER,ADC0,A0)
+#endif /* pinDef */
+
+#ifdef defConstant
+/***********************************************************
+ * define constants for special pins
+ ***********************************************************/
+/* define board specific pin functions */
+
+#ifndef defClass
+#define defClass(C,N) C##_##N
+#endif 
+
+defConstant(_avoid_empty_enum_,0)
+#endif	/* defConstant */
+/***********************************************************
+ * clean up Xmacros
+ ***********************************************************/
+#undef pinDef
+#undef defConstant
+#undef defClass
+#undef All_Constants

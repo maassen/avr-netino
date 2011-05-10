@@ -176,6 +176,10 @@ void init()
 #if defined(TCCR0A) && defined(WGM01)
 	sbi(TCCR0A, WGM01);
 	sbi(TCCR0A, WGM00);
+#elif defined(TCCR0) && defined(WGM01)
+	// ATmega32 uses Timer0 is fast PWM for output
+	sbi(TCCR0, WGM01);
+	sbi(TCCR0, WGM00);
 #endif  
 
 	// set timer 0 prescale factor to 64
@@ -211,9 +215,9 @@ void init()
 	// this is better for motors as it ensures an even waveform
 	// note, however, that fast pwm mode can achieve a frequency of up
 	// 8 MHz (with a 16 MHz clock) at 50% duty cycle
-
+#if defined(TCCR1B)
 	TCCR1B = 0;
-
+#endif
 	// set timer 1 prescale factor to 64
 #if defined(TCCR1B) && defined(CS11) && defined(CS10)
 	sbi(TCCR1B, CS11);

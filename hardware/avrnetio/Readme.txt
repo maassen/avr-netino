@@ -52,17 +52,19 @@ The only thing you have to modify is to add the auto reset functionality
 to your board. Otherwise it will be very difficult to enter the boot-loader.
 
 To do so, you just have to solder a capacitor of 100nF between the RS232 DTR
-signal (J5 Pin4) and the AVR Reset signal (ATmega Pin9).
+signal (J5 Pin4) and the AVR Reset signal (ATmega: IC5 Pin9).
+As reported from Lupus, it also works fine with RS232 RTS (via MAX232 IC4). 
 I've sometimes observed, that the ATmega hangs after reset. I could figure out
 that if came from a to high voltage at the reset pin and the ATmega was entering
 high voltage programming mode. As a solution I added a diode (ie. 1N4148) from
 reset to Vcc. After that the auto reset was very reliable.
 The circuit looks like:
 
-DTR o-----||-----+-----|>|-----o Vcc 
-        100nF    |    1N4148
-                 |
-                 o Reset
+DTR:  J5-4
+   or    o-----||-----+-----|>|-----o Vcc 
+RTS: IC4-9   100nF    |    1N4148   IC5-10
+                      |
+                Reset o IC5-9
 
 Licence
 --------------------

@@ -1,0 +1,131 @@
+/*********************************************-*- mode:c -*-
+ * board_mega.h
+ * this file contains all board specific definitions
+ * for Arduino Mega
+ * not the cpu spcific ones!
+ *
+ * you must define one of the folowing macros to 
+ * use this file:
+ *
+ * Names for special pins or hardware constants:
+ *   -  as const static:
+ *      #define defConstant(N,V) const static uint8_t N = V;
+ *   -  as enum element
+ *      #define defConstant(N,V) N = V,
+ * defConstants		get all pin fuctions by names
+ *
+ * pinDef(p,b,t,f,u,...)	define a pin by port,bit,timer,function,usage...
+ *   - all in 1 byte (for m168/m328/m32/m644(p)
+ *     #define pinDef(P,B,T,...)	((((P)-1)<<5) | (B) | ((T)<<3))
+ *   - all in 2 byte (for m1280/m2560
+ *     #define pinDef(P,B,T,...)	((((P)-1)<<8) | (B) | ((T)<<3))
+ *   - only port for digital_pin_to_port_PGM[]
+ *     #define pinDef(P,...)	(P)
+ *   - only bit mask for digital_pin_to_bit_mask_PGM[]
+ *     #define pinDef(P,B,...)	_BV(B)
+ *   - only timer for digital_pin_to_timer_PGM[]
+ *     #define pinDef(P,B,T,...)	(T)
+ *
+ ***********************************************************
+ * Board:	Arduino Mega 1280/2560
+ * (C) M. Maassen	mic.maassen@gmail.com
+/***********************************************************
+ * things we want allways 
+ ***********************************************************/
+#ifndef ARDUINO_MEGA
+#define ARDUINO_MEGA	0x20110208	/* Date 2011-02-08 */
+#endif
+
+#ifdef pinDef
+/***********************************************************
+ * mapping from pin number to Port,Bit,Timer(PWM),...
+ ***********************************************************/
+pinDef(E, 0 , NOT_ON_TIMER, RXD , D0) 	// PE 0 ** 0 ** USART0_RX	
+pinDef(E, 1 , NOT_ON_TIMER, TXD , D1) 	// PE 1 ** 1 ** USART0_TX	
+pinDef(E, 4 , TIMER3B, E4 , D2) 	// PE 4 ** 2 ** PWM2	
+pinDef(E, 5 , TIMER3C, E5 , D3) 	// PE 5 ** 3 ** PWM3	
+pinDef(G, 5 , TIMER0B, G5 , D4) 	// PG 5 ** 4 ** PWM4	
+pinDef(E, 3 , TIMER3A, E3 , D5) 	// PE 3 ** 5 ** PWM5	
+pinDef(H, 3 , TIMER4A, H3 , D6) 	// PH 3 ** 6 ** PWM6	
+pinDef(H, 4 , TIMER4B, H4 , D7) 	// PH 4 ** 7 ** PWM7	
+pinDef(H, 5 , TIMER4C, H5 , D8) 	// PH 5 ** 8 ** PWM8	
+pinDef(H, 6 , TIMER2B, H6 , D9) 	// PH 6 ** 9 ** PWM9	
+pinDef(B, 4 , TIMER2A, B4 , D10) 	// PB 4 ** 10 ** PWM10	
+pinDef(B, 5 , TIMER1A, B5 , D11) 	// PB 5 ** 11 ** PWM11	
+pinDef(B, 6 , TIMER1B, B6 , D12) 	// PB 6 ** 12 ** PWM12	
+pinDef(B, 7 , TIMER0A, B7 , D13) 	// PB 7 ** 13 ** PWM13	
+pinDef(J, 1 , NOT_ON_TIMER, TXD3, D14)	// PJ 1 ** 14 ** USART3_TX	
+pinDef(J, 0 , NOT_ON_TIMER, RXD2, D15)	// PJ 0 ** 15 ** USART3_RX	
+pinDef(H, 1 , NOT_ON_TIMER, TXD2, D16) 	// PH 1 ** 16 ** USART2_TX	
+pinDef(H, 0 , NOT_ON_TIMER, RXD2, D17) 	// PH 0 ** 17 ** USART2_RX	
+pinDef(D, 3 , NOT_ON_TIMER, TXD1, D18) 	// PD 3 ** 18 ** USART1_TX	
+pinDef(D, 2 , NOT_ON_TIMER, RXD1, D19) 	// PD 2 ** 19 ** USART1_RX	
+pinDef(D, 1 , NOT_ON_TIMER, SDA, D20) 	// PD 1 ** 20 ** I2C_SDA	
+pinDef(D, 0 , NOT_ON_TIMER, SCL, D21) 	// PD 0 ** 21 ** I2C_SCL	
+pinDef(A, 0 , NOT_ON_TIMER, A0 , D22) 	// PA 0 ** 22 ** D22	
+pinDef(A, 1 , NOT_ON_TIMER, A1 , D23) 	// PA 1 ** 23 ** D23	
+pinDef(A, 2 , NOT_ON_TIMER, A2 , D24) 	// PA 2 ** 24 ** D24	
+pinDef(A, 3 , NOT_ON_TIMER, A3 , D25) 	// PA 3 ** 25 ** D25	
+pinDef(A, 4 , NOT_ON_TIMER, A4 , D26) 	// PA 4 ** 26 ** D26	
+pinDef(A, 5 , NOT_ON_TIMER, A5 , D27) 	// PA 5 ** 27 ** D27	
+pinDef(A, 6 , NOT_ON_TIMER, A6 , D28) 	// PA 6 ** 28 ** D28	
+pinDef(A, 7 , NOT_ON_TIMER, A7 , D29) 	// PA 7 ** 29 ** D29	
+pinDef(C, 7 , NOT_ON_TIMER, C7 , D30) 	// PC 7 ** 30 ** D30	
+pinDef(C, 6 , NOT_ON_TIMER, C6 , D31) 	// PC 6 ** 31 ** D31	
+pinDef(C, 5 , NOT_ON_TIMER, C5 , D32) 	// PC 5 ** 32 ** D32	
+pinDef(C, 4 , NOT_ON_TIMER, C4 , D33) 	// PC 4 ** 33 ** D33	
+pinDef(C, 3 , NOT_ON_TIMER, C3 , D34) 	// PC 3 ** 34 ** D34	
+pinDef(C, 2 , NOT_ON_TIMER, C2 , D35) 	// PC 2 ** 35 ** D35	
+pinDef(C, 1 , NOT_ON_TIMER, C1 , D36) 	// PC 1 ** 36 ** D36	
+pinDef(C, 0 , NOT_ON_TIMER, C0 , D37) 	// PC 0 ** 37 ** D37	
+pinDef(D, 7 , NOT_ON_TIMER, D7 , D38) 	// PD 7 ** 38 ** D38	
+pinDef(G, 2 , NOT_ON_TIMER, G2 , D39) 	// PG 2 ** 39 ** D39	
+pinDef(G, 1 , NOT_ON_TIMER, G1 , D40) 	// PG 1 ** 40 ** D40	
+pinDef(G, 0 , NOT_ON_TIMER, G0 , D41) 	// PG 0 ** 41 ** D41	
+pinDef(L, 7 , NOT_ON_TIMER, L7 , D42) 	// PL 7 ** 42 ** D42	
+pinDef(L, 6 , NOT_ON_TIMER, L6 , D43) 	// PL 6 ** 43 ** D43	
+pinDef(L, 5 , TIMER5C, L5 , D44) 	// PL 5 ** 44 ** D44	
+pinDef(L, 4 , TIMER5B, L4 , D45) 	// PL 4 ** 45 ** D45	
+pinDef(L, 3 , TIMER5A, L3 , D46) 	// PL 3 ** 46 ** D46	
+pinDef(L, 2 , NOT_ON_TIMER, L2 , D47) 	// PL 2 ** 47 ** D47	
+pinDef(L, 1 , NOT_ON_TIMER, L1 , D48) 	// PL 1 ** 48 ** D48	
+pinDef(L, 0 , NOT_ON_TIMER, L0 , D49) 	// PL 0 ** 49 ** D49	
+pinDef(B, 3 , NOT_ON_TIMER, MISO, D50) 	// PB 3 ** 50 ** SPI_MISO	
+pinDef(B, 2 , NOT_ON_TIMER, MOSI, D51) 	// PB 2 ** 51 ** SPI_MOSI	
+pinDef(B, 1 , NOT_ON_TIMER, SCK, D52) 	// PB 1 ** 52 ** SPI_SCK	
+pinDef(B, 0 , NOT_ON_TIMER, SS, D53) 	// PB 0 ** 53 ** SPI_SS	
+pinDef(F, 0 , NOT_ON_TIMER, F0 , A0) 	// PF 0 ** 54 ** A0	
+pinDef(F, 1 , NOT_ON_TIMER, F1 , A1) 	// PF 1 ** 55 ** A1	
+pinDef(F, 2 , NOT_ON_TIMER, F2 , A2) 	// PF 2 ** 56 ** A2	
+pinDef(F, 3 , NOT_ON_TIMER, F3 , A3) 	// PF 3 ** 57 ** A3	
+pinDef(F, 4 , NOT_ON_TIMER, F4 , A4) 	// PF 4 ** 58 ** A4	
+pinDef(F, 5 , NOT_ON_TIMER, F5 , A5) 	// PF 5 ** 59 ** A5	
+pinDef(F, 6 , NOT_ON_TIMER, F6 , A6) 	// PF 6 ** 60 ** A6	
+pinDef(F, 7 , NOT_ON_TIMER, F7 , A7) 	// PF 7 ** 61 ** A7	
+pinDef(K, 0 , NOT_ON_TIMER, K0 , A8) 	// PK 0 ** 62 ** A8	
+pinDef(K, 1 , NOT_ON_TIMER, K1 , A9) 	// PK 1 ** 63 ** A9	
+pinDef(K, 2 , NOT_ON_TIMER, K2 , A10) 	// PK 2 ** 64 ** A10	
+pinDef(K, 3 , NOT_ON_TIMER, K3 , A11) 	// PK 3 ** 65 ** A11	
+pinDef(K, 4 , NOT_ON_TIMER, K4 , A12) 	// PK 4 ** 66 ** A12	
+pinDef(K, 5 , NOT_ON_TIMER, K5 , A13) 	// PK 5 ** 67 ** A13	
+pinDef(K, 6 , NOT_ON_TIMER, K6 , A14) 	// PK 6 ** 68 ** A14	
+pinDef(K, 7 , NOT_ON_TIMER, K7 , A15) 	// PK 7 ** 69 ** A15	
+
+#endif /* pinDef */
+#ifdef defConstant
+/***********************************************************
+ * define constants for special pins
+ ***********************************************************/
+#ifndef defClass
+#define defClass(C,N) C##_##N
+#endif 
+
+defConstant(_avoid_empty_enum_,0)
+#endif	/* defConstant */
+/***********************************************************
+ * clean up Xmacros
+ ***********************************************************/
+#undef pinDef
+#undef defConstant
+#undef defClass
+#undef All_Constants
