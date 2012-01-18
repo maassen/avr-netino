@@ -31,7 +31,6 @@
 #include <avr/pgmspace.h>
 #include <stdio.h>
 
-#include "WConstants.h"
 #include "wiring_private.h"
 
 volatile static voidFuncPtr intFunc[EXTERNAL_NUM_INTERRUPTS];
@@ -47,7 +46,8 @@ void attachInterrupt(uint8_t interruptNum, void (*userFunc)(void), int mode) {
     // the mode into place.
       
     // Enable the interrupt.
-      
+
+    mode &= 3;                  /* only the bits 0,1 */
     switch (interruptNum) {
 #if defined(EICRA) && defined(EICRB) && defined(EIMSK)
     case 2:
@@ -117,8 +117,8 @@ void attachInterrupt(uint8_t interruptNum, void (*userFunc)(void), int mode) {
     #if defined(EICRA) && defined(ISC20) && defined(ISC21) && defined(EIMSK)
       EICRA = (EICRA & ~((1 << ISC20) | (1 << ISC21))) | (mode << ISC20);
       EIMSK |= (1 << INT2);
-    #elif defined(MCUCR) && defined(ISC2) && defined(GICR)
-      MCUCR = (MCUCR & ~(1 << ISC2) ) | (mode << ISC2);
+    #elif defined(MCUCSR) && defined(ISC2) && defined(GICR)
+      MCUCSR = (MCUCSR & ~(1 << ISC2) ) | ((mode&1) << ISC2);
       GICR |= (1 << INT2);
     #endif  /* only 2 ext. interrups */
       break;

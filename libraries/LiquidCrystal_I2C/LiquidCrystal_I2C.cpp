@@ -9,23 +9,30 @@
  * url: http://www.xs4all.nl/~hmario/arduino/LiquidCrystal_I2C/LiquidCrystal_I2C.zip
  * licence: unkown (same as Arduino LiquidCrystal library)
  *
- * Sep 2009	V1.0 by Mario H.
- * Jan 2011	adapted to AVR-Net-IO by M.Maassen <mic.maassen@gmail.com>
+ * Dec 2011	V2.0 by Mario H.
+ * Jan 2012	adapted to AVR-Net-IO by M.Maassen <mic.maassen@gmail.com>
  ************************************************************/
 #include "LiquidCrystal_I2C.h"
 #include <inttypes.h>
-#include "WProgram.h" 
-#include "Wire.h"
+#include <Wire.h>
+#if ARDUINO >= 100
+#include <Arduino.h> // Arduino 1.0
+#else
+#include <Wprogram.h> // Arduino 0022
+#endif		      // ARDUINO
+
 
 #ifdef AVR_NET_IO
+#if ARDUINO < 100
 #include <pins_arduino.h>
+#endif
 // flags for backlight control
 #define LCD_BACKLIGHT 0x00
-#define LCD_NOBACKLIGHT I2C_LCD_BL
+#define LCD_NOBACKLIGHT 0x80	// I2C_LCD_BL
 
-#define En I2C_LCD_E  // Enable bit
-#define Rw I2C_LCD_RW  // Read/Write bit
-#define Rs I2C_LCD_RS  // Register select bit
+#define En	B01000000 	// I2C_LCD_E  // Enable bit
+#define Rw	B00100000	// I2C_LCD_RW  // Read/Write bit
+#define Rs	B00010000 	// I2C_LCD_RS  // Register select bit
 
 #else
 // flags for backlight control
@@ -268,8 +275,9 @@ inline void LiquidCrystal_I2C::command(uint8_t value) {
 	send(value, 0);
 }
 
-inline void LiquidCrystal_I2C::write(uint8_t value) {
+inline size_t LiquidCrystal_I2C::write(uint8_t value) {
 	send(value, _Rs);
+	return 0;
 }
 
 
@@ -291,7 +299,7 @@ void LiquidCrystal_I2C::write4bits(uint8_t value) {
 
 void LiquidCrystal_I2C::expanderWrite(uint8_t _data){                                        
 	Wire.beginTransmission(_Addr);
-	Wire.send((int)(_data) | _backlightval);
+	Wire.write((int)(_data) | _backlightval);
 	Wire.endTransmission();   
 }
 

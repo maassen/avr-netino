@@ -20,14 +20,12 @@
   Boston, MA  02111-1307  USA
 
   Modified 28 September 2010 by Mark Sproul
-  removed ifdef __AVR_ATmegaXX__ by M.Maassen <mic.maassen@gmail.com>
 
   $Id$
 */
 
 #include "wiring_private.h"
 #include "pins_arduino.h"
-
 
 uint8_t analog_reference = DEFAULT;
 
@@ -43,8 +41,18 @@ int analogRead(uint8_t pin)
 {
 	uint8_t low, high;
 
-	if (pin >= pins_ADC0) pin -= pins_ADC0; // allow for channel or pin numbers
-
+// allow for channel or pin numbers
+#ifdef analogInputToDigitalPin
+	if (analogInputToDigitalPin(pin) < 0) 
+	  pin -= analogInputToDigitalPin(0);
+#else
+	if (pin >= A0) pin -= A0; // allow for channel or pin numbers
+#endif
+	
+#ifdef analogPinToChannel
+	// i.e. leonardo
+	pin = analogPinToChannel(pin);
+#endif
 #if defined(ADCSRB) && defined(MUX5)
 	// the MUX5 bit of ADCSRB selects whether we're reading from channels
 	// 0 to 7 (MUX5 low) or 8 to 15 (MUX5 high).
@@ -109,7 +117,7 @@ void analogWrite(uint8_t pin, int val)
 		switch(digitalPinToTimer(pin))
 		{
 			// XXX fix needed for atmega8
-			#if defined(TCCR0) && defined(COM00) && !defined(__AVR_ATmega8__)
+			#if defined(TCCR0) && defined(COM01) && !defined(__AVR_ATmega8__)
 			case TIMER0A:
 				// connect pwm to pin on timer 0
 				sbi(TCCR0, COM01);
@@ -218,6 +226,14 @@ void analogWrite(uint8_t pin, int val)
 				// connect pwm to pin on timer 4, channel C
 				sbi(TCCR4A, COM4C1);
 				OCR4C = val; // set pwm duty
+				break;
+			#endif
+				
+			#if defined(TCCR4A) && defined(COM4D1)
+			case TIMER4D:
+				// connect pwm to pin on timer 4, channel D
+				sbi(TCCR4A, COM4D1);
+				OCR4D = val; // set pwm duty
 				break;
 			#endif
 

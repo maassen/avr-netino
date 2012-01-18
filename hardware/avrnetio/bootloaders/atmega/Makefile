@@ -96,6 +96,9 @@ override CFLAGS        = -g -Wall $(OPTIMIZE) -mmcu=$(MCU_TARGET) -DF_CPU=$(AVR_
 ifeq ($(PROGRAM),optiboot)
 OPTI_BAUD  = 115200
 OPTIMIZE = -Os -fno-inline-small-functions -fno-split-wide-types -mshort-calls
+# for avrdude 5.10 and newer optiboot works only with programmer arduino
+# otherwise device signature cannot be read
+PROTOCOL = arduino
 override LDFLAGS       = -Wl,--section-start=.text=$(LDSECTION) -Wl,--relax -nostartfiles -Wl,--gc-sections -nostdlib
 
 else ifeq ($(PROGRAM),stk500v2)
@@ -150,7 +153,8 @@ all: $(ALL)
 ############################################################
 $(ARDUINOx8) $(ARDUINOx8:%=%_isp): AVR_FREQ = 16000000L
 $(ARDUINOx8) $(ARDUINOx8:%=%_isp): CFLAGS +=  '-DLED_B=5' '-DLED_P=B' '-DNUM_LED_FLASHES=1'
-$(ARDUINOx8) $(ARDUINOx8:%=%_isp):
+$(ARDUINOx8) $(ARDUINOx8:%=%_isp): BOARD = ARDUINO
+$(ARDUINOx8) $(ARDUINOx8:%=%_isp): variant = standard
 
 # Arduino w/ ATmega168@16MHz auto-reset 
 diecimila diecimila_isp: TARGET = diecimila
@@ -232,6 +236,8 @@ ng88 ng88_isp: HFUSE = DD
 # Arduino 8 MHz (RC)
 ############################################################
 # Arduino w/ ATmega168@8MHz w/o auto-reset 
+$(ARDUINOx8RC) $(ARDUINOx8RC:%=%_isp): BOARD = ARDUINO
+$(ARDUINOx8RC) $(ARDUINOx8RC:%=%_isp): variant = standard
 lilypad lilypad_isp: TARGET = lilypad
 lilypad lilypad_isp: MCU_TARGET = atmega168
 lilypad lilypad_isp: AVR_FREQ = 8000000L
@@ -252,6 +258,8 @@ lilypad lilypad_isp: HFUSE = DD
 # Arduino Megas
 ############################################################
 # Arduino w/ ATmega1280@16MHz auto-reset 
+$(ARDUINO_MEGA) $(ARDUINO_MEGA:%=%_isp): BOARD = ARDUINO_MEGA
+$(ARDUINO_MEGA) $(ARDUINO_MEGA:%=%_isp): variant = mega
 mega mega_isp: TARGET = mega
 mega mega_isp: MCU_TARGET = atmega1280
 mega mega_isp: AVR_FREQ = 16000000L 
@@ -278,6 +286,8 @@ $(ANIO) $(ANIO:%=%_isp): #CFLAGS += '-DLED_B=1' '-DLED_P=B' # led at BL jumper
 $(ANIO) $(ANIO:%=%_isp): CFLAGS += '-DLED_B=6' '-DLED_P=D' # LED3
 $(ANIO) $(ANIO:%=%_isp): CFLAGS += '-DBL_B=1' '-DBL_P=B' # BL JMP
 $(ANIO) $(ANIO:%=%_isp): LDFLAGS +=
+$(ANIO) $(ANIO:%=%_isp): BOARD = AVR_NET_IO
+$(ANIO) $(ANIO:%=%_isp): variant = avrnetio
 
 ### AVR-Net-IO w/ ATmega32@16MHz auto-reset
 anio32 anio32_isp: TARGET = anio32
@@ -336,7 +346,7 @@ anio324p anio324p_isp: EFUSE = FD # 05
 anio644 anio644_isp: TARGET = anio644
 anio644 anio644_isp: MCU_TARGET = atmega644
 ifeq ($(PROGRAM),optiboot)
-anio644 anio644_isp: CFLAGS +=  -DBIG_BOOT 
+anio644 anio644_isp: CFLAGS +=  -DBIG_BOOT
 anio644 anio644_isp: LDSECTION  = 0xfc00
 anio644 anio644_isp: HFUSE = DE
 else
@@ -350,7 +360,7 @@ anio644 anio644_isp: EFUSE = FD # 05
 anio644p anio644p_isp: TARGET = anio644p
 anio644p anio644p_isp: MCU_TARGET = atmega644p
 ifeq ($(PROGRAM),optiboot)
-anio644p anio644p_isp: CFLAGS += -DBIG_BOOT 
+anio644p anio644p_isp: CFLAGS += -DBIG_BOOT
 anio644p anio644p_isp: LDSECTION  = 0xfc00
 anio644p anio644p_isp: HFUSE = DE
 else
@@ -364,7 +374,7 @@ anio644p anio644p_isp: EFUSE = FD # 05
 anio1284p anio1284p_isp: TARGET = anio1284p
 anio1284p anio1284p_isp: MCU_TARGET = atmega1284p
 ifeq ($(PROGRAM),optiboot)
-anio1284p anio1284p_isp: CFLAGS += -DBIG_BOOT 
+anio1284p anio1284p_isp: CFLAGS += -DBIG_BOOT
 anio1284p anio1284p_isp: LDSECTION  = 0x1fc00
 anio1284p anio1284p_isp: HFUSE = DE
 else
@@ -402,6 +412,7 @@ $(TINY) $(TINY:%=%_isp): AVR_FREQ = 8000000L
 $(TINY) $(TINY:%=%_isp): CFLAGS += '-DSOFT_UART' '-DBAUD_RATE=9600'
 $(TINY) $(TINY:%=%_isp): CFLAGS += '-DVIRTUAL_BOOT_PARTITION'
 $(TINY) $(TINY:%=%_isp): BAUD = 9600
+$(TINY) $(TINY:%=%_isp): BOARD = ATtiny
 
 tiny25 tiny25_isp: TARGET = tiny25
 tiny25 tiny25_isp: MCU_TARGET = attiny25
@@ -491,6 +502,7 @@ core = $(word 3,$(rdir))
 	@echo "$(TARGET).build.mcu=$(MCU_TARGET)" >> $@
 	@echo "$(TARGET).build.f_cpu=$(AVR_FREQ)" >> $@
 	@echo "$(TARGET).build.core=$(core)" >> $@
+	@echo $(if $(variant),,'#') "$(TARGET).build.variant=$(variant)" >> $@
 	@echo "$(TARGET).upload.protocol=$(PROTOCOL)" >> $@
 	@echo -n "$(TARGET).upload.maximum_size=" >> $@
 	@$(AWK) 'BEGIN {print $(LDSECTION);}' >> $@
@@ -503,6 +515,9 @@ core = $(word 3,$(rdir))
 	@echo $(if $(EFUSE),,'#') "$(TARGET).bootloader.extended_fuses=0x$(EFUSE)" >> $@
 	@echo "$(TARGET).bootloader.unlock_bits=0x$(ULOCK)" >> $@
 	@echo "$(TARGET).bootloader.lock_bits=0x$(LOCK)" >> $@
+	@echo "### for ChipKit mpide:" >> $@
+	@echo "# $(TARGET).platform=avr" >> $@
+	@echo "# $(TARGET).board=$(BOARD)" >> $@
 	@echo "##################################################" >> $@
 
 BOARDS = $(wildcard *.boards.txt)

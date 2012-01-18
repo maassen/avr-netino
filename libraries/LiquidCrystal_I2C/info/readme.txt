@@ -1,4 +1,4 @@
-LiquidCrystal_I2C V1.0
+LiquidCrystal_I2C V2.0
 
 The LiquidCrystal_I2C library is a modified version of the standard LiquidCrystal library as found on 
 the Arduino website.
@@ -12,7 +12,7 @@ schematic diagram).
 
 The PCF8574 extender is available in two versions, the PCF8574 and the PCF8574A.
 The only difference between the two is the I2C base address.
-The base address for the PCF8574=0x20 and the base address for the PCF8574A is 0x38.
+The base address for the PCF8574 is 0x20 and the base address for the PCF8574A is 0x38.
 The examples included in this zip file assume the use of an PCF8574 set for address 0x20 
 (A0, A1 and A3 grounded).
 
@@ -22,17 +22,15 @@ without changing to much code.
 Functions not supported by this library will return nothing at all and in case a return value is expected 
 the function will return 0.
 
-Currently (sept. 2009) the library is tested with Arduino Duemilanove & IDE 0016.
-LCD's tested: 
-  TRI-T CG046-3007 A00 (2 x 16 with 20mA backlight)
-  Sure DE-LM220        (4 x 20 with 10mA backlight)
+Update 8-12-2011:
+Due to the relaese of Arduino IDE 1.0 some changes were made to the library to get it working under the new IDE.
+Because of these changes this version of the LiquidCrystal_I2C library can not be used for older IDE versions.
+The old version of the LiquidCrystal_I2Clibrary can be downloaded form http://www.xs4all.nl/~hmario/arduino/LiquidCrystal_I2C/V1.0/LiquidCrystal_I2C_V1.0.zip
 
-Update:
-User submitted compatibility notifications:
-AV-DISPLAY  LCD 0802 (2 X 8  with LED (GREEN/K) Negative) on Duemilanove & IDE 0017. By Federico Galli
-
-Download latest version from:  
+Download the latest version from:  
 http://www.xs4all.nl/~hmario/arduino/LiquidCrystal_I2C/LiquidCrystal_I2C.zip
+(Thanks to Ailton F. for beta testing.)
+
 
 Mario H.
 atmega@xs4all.nl
