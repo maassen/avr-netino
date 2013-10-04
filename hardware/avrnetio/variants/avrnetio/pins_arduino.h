@@ -1,14 +1,21 @@
 /*
-  pins_arduino.h - Pin definition functions for Arduino
-  Part of Arduino - http://www.arduino.cc/
+  pins_arduino.h - Pin definition functions for Arduino (arduino.cc)
+  Part of AVR-Netino - http://code.google.com/p/avr-netino/
 
-  Copyright (c) 2007 David A. Mellis
+  Copyright (c) 2011 Michael Maassen
+  
+  2011-01-04:	port to AVR-Net-IO by M.Maassen <mic.maassen@gmail.com>
+  2012-01-21:   port to Arduino-1.0
+  2013-10-03:   port to Arduino-1.0.5
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
   License as published by the Free Software Foundation; either
-  version 2.1 of the License, or (at your option) any later version.
-
+  version 2.1 of the License, or (at your option) any later version, or
+  
+  under the terms of the  Common Development and Distribution License (CDDL) 
+  version 1, see http://www.opensource.org/licenses/cddl1.php
+  
   This library is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
@@ -23,272 +30,330 @@
 */
 
 #ifndef Pins_Arduino_h
-#define Pins_Arduino_h		0x20120110
+#define Pins_Arduino_h		0x20131003	/* Date 2013-10-03 */
 
-#define AVR_NET_IO		0x20120110
+// we define AVRNETINO to flag avrnetino core
+// with additional constants for libraries
+#ifndef AVR_Netino 
+#define AVR_Netino	0x20131003	/* Date 2012-10-03 */
+#endif
+
+/* Hopfully this will be setable in future arduino ide's boards.txt */
+#ifndef BOARD_DEF
+#define BOARD_DEF	"board.def"
+#endif
 
 #include <avr/pgmspace.h>
 
-#define NUM_DIGITAL_PINS            32
-#define NUM_ANALOG_INPUTS           8
-#define analogInputToDigitalPin(p)  ((p < NUM_ANALOG_INPUTS) ? (p) + 8 : -1)
+  /* this enum maps avr port pins to pin numbers */
+enum pins_by_port { 
+#define pinDef(P,B,T,F,...) pins_port_##P##B,
+#include BOARD_DEF
+#undef pinDef
+  pins_count_digital,			/* number of pins */
+}; 
 
-#if defined(COM21)
-#if defined(COM0B1)
-#define digitalPinHasPWM(p)         ((p) == 20 || (p) == 21 || (p) == 23 || (p) == 27 || (p) == 28)
-#else
-#define digitalPinHasPWM(p)         ((p) == 20 || (p) == 21 || (p) == 23 || (p) == 27)
-#endif	/* COM0B1 */
-#else
-#if defined(COM0B1)
-#define digitalPinHasPWM(p)         ((p) == 20 || (p) == 21 || (p) == 22 || (p) == 23 || (p) == 27 || (p) == 28)
-#else
-#define digitalPinHasPWM(p)         ((p) == 20 || (p) == 21 || (p) == 22 || (p) == 23 || (p) == 27)
-#endif	/* COM0B1 */
-#endif	/* COM21 */
+/* this enum is to get the number of analog channels, by increasing Ax 
+ * and maps adc channels to analog input numbers */
+enum analog_pin_order { 
+#define anaDef(a,p,c,...) pins_adc_ch##c,
+#include BOARD_DEF
+#undef anaDef
+  pins_count_analog,			/* number of analog inputs */
+}; 
 
-const static uint8_t SS   = 28;
-const static uint8_t MOSI = 29;
-const static uint8_t MISO = 30;
-const static uint8_t SCK  = 31;
+  /* this enum maps analog names A0,A1,... to pin numbers */
+enum analog_by_pin { 
+#define anaDef(a,p,c,...) A##a = p,
+#include BOARD_DEF
+#undef anaDef
+}; 
 
-const static uint8_t SDA = 1;
-const static uint8_t SCL = 0;
-const static uint8_t LED_BUILTIN = 18;
 
-const static uint8_t A0 = 8;
-const static uint8_t A1 = 9;
-const static uint8_t A2 = 10;
-const static uint8_t A3 = 11;
-const static uint8_t A4 = 12;
-const static uint8_t A5 = 13;
-const static uint8_t A6 = 14;
-const static uint8_t A7 = 15;
-#ifdef PCICR
-#define digitalPinToPCICR(p)    (((p) >= 0 && (p) <= 31) ? (&PCICR) : ((uint8_t *)0))
-#define digitalPinToPCICRbit(p) (((p) <= 7) ? 2 : (((p) <= 15) ? 0 : (((p) <= 23) ? 3 : 1)))
-#define digitalPinToPCMSK(p)    (((p) <= 7) ? (&PCMSK2) : (((p) <= 15) ? (&PCMSK0) : (((p) <= 23) ? (&PCMSK3) : (((p) <= 31) ? (&PCMSK1) :((uint8_t *)0)))))
-#define digitalPinToPCMSKbit(p) ((p) & 7)
+  /* this enum maps avr pin functions to pin numbers */
+enum pins_function { 
+#define pinDef(P,B,T,F,...) pins_##F,
+#include BOARD_DEF
+#undef pinDef
+};
+
+  /* this enum maps board pins usage to pin numbers */
+enum pins_usage { 
+#define pinDef(P,B,T,F,U,...) pins_##U,
+#include BOARD_DEF
+#undef pinDef
+};
+
+/* this is for additional board constants */
+#define All_Constants
+#define defConstant(N,V)  N = V, 
+  enum pins_constants {
+#include BOARD_DEF
+  };
+#undef defConstant
+#undef All_Constants
+
+  /* this is for compatiblity to arduino */
+enum arduino_compat {
+  MISO = pins_MISO, 
+  MOSI = pins_MOSI,
+  SCK = pins_SCK,
+  SS = pins_SS,
+  SDA = pins_SDA,
+  SCL = pins_SCL,
+
+#define Arduino_Constants
+#define defConstant(N,V)  N = V,
+#define defClass(C,N) N
+#include BOARD_DEF
+#undef defClass
+#undef defConstant
+#undef Arduino_Constants
+};
+
+#define ArduinoDefs_Digital
+#define ArduinoDefs_Analog
+#define ArduinoDefs_PWM
+#define ArduinoDefs_PCINT
+#define ArduinoDefs_USB
+#include BOARD_DEF
+#undef ArduinoDefs_USB
+#undef ArduinoDefs_PCINT
+#undef ArduinoDefs_PWM
+#undef ArduinoDefs_Analog
+#undef ArduinoDefs_Digital
+
+#ifndef NUM_DIGITAL_PINS
+#define NUM_DIGITAL_PINS            pins_count_digital
+#endif
+
+#ifndef NUM_ANALOG_INPUTS
+#define NUM_ANALOG_INPUTS           pins_count_analog
+#endif
+
+#ifndef analogPinToChannel
+extern const uint8_t PROGMEM analog_pin_to_channel_PGM[];
+#define analogPinToChannel(P)  (((P) < NUM_ANALOG_INPUTS) ? pgm_read_byte( analog_pin_to_channel_PGM+(P)):-1)
+#define MAP_ANALOG_CHANNEL
+#endif
+
+#ifndef analogInputToDigitalPin
+extern const int8_t PROGMEM analog_input_to_digital_pin_PGM[];
+#define analogInputToDigitalPin(P)  (((P) < NUM_ANALOG_INPUTS) ? pgm_read_byte(analog_input_to_digital_pin_PGM+(P)): -1)
+#define MAP_ANALOG_PIN
+#endif
+
+#ifndef digitalPinHasPWM
+extern const uint8_t PROGMEM digital_pin_to_timer_PGM[];
+#define digitalPinHasPWM(P)  ( pgm_read_byte(digital_pin_to_timer_PGM  + (P) ) != NOT_ON_TIMER)
+#endif
+
+#ifndef digitalPinToPCICR
+extern const int8_t PROGMEM digital_pin_to_pcint_PGM[];
+#ifdef PCINT
+#define digitalPinToPCINT(P)  ( pgm_read_byte(digital_pin_to_pcint_PGM  + (P) ) 
+#define MAP_PCINT
+#define digitalPinToPCICR(p)    (digitalPinToPCINT(p) >= 0) ? (&PCICR) : ((uint8_t *)0))
+#define digitalPinToPCICRbit(p) (digitalPinToPCINT(p) >> 3)
+#ifdef PCMSK2
+#define digitalPinToPCMSK(p)    ((digitalPinToPCINT(p)&16) ? (&PCMSK2) : ((digitalPinToPCINT(p)&8) ? (&PCMSK1) : (&PCMSK0)))
+#elif defined(PCMSK1)
+#define digitalPinToPCMSK(p)    ((digitalPinToPCINT(p)&8) ? (&PCMSK1) : (&PCMSK0))
 #else
-/* no PCINT (mega32) */
+#define digitalPinToPCMSK(p)    (&PCMSK0)
+#endif
+#define digitalPinToPCMSKbit(p) (_BV(digitalPinToPCINT(p)&7))
+#else	/* PCINT */
+/* MCU has no pin change interrupts */
 #define digitalPinToPCICR(p)    ((uint8_t *)0)
 #define digitalPinToPCICRbit(p) 0
 #define digitalPinToPCMSK(p)    ((uint8_t *)0)
 #define digitalPinToPCMSKbit(p) 0
-#endif /* PCICR */
+#endif	/* PCINT */
+#endif	/* digitalPinToPCICR */
 
 #ifdef ARDUINO_MAIN
-/***********************************************************
- * Board:	AVR-Net-IO	by Pollin.de
-  * On the Arduino board, digital pins are also used
- * for the analog output (software PWM).  Analog input
- * pins are a separate set.
-
- * ATMEL ATMEGA32 & 644(P) / AVR-NetIO
- *
- *                   +---\/---+
- * INT0 (D 24) PB0  1|        |40  PA0 (AI 0 / D8)
- * INT1 (D 25) PB1  2|        |39  PA1 (AI 1 / D9)
- * INT2 (D 26) PB2  3|        |38  PA2 (AI 2 / D10)
- *  PWM (D 27) PB3  4|        |37  PA3 (AI 3 / D11)
- *PWM+SS(D 28) PB4  5|        |36  PA4 (AI 4 / D12)
- * MOSI (D 29) PB5  6|        |35  PA5 (AI 5 / D13)
- * MISO (D 30) PB6  7|        |34  PA6 (AI 6 / D14)
- *  SCK (D 31) PB7  8|        |33  PA7 (AI 7 / D15)
- *             RST  9|        |32  AREF
- *             VCC 10|        |31  GND 
- *             GND 11|        |30  AVCC
- *           XTAL2 12|        |29  PC7 (D  7)
- *           XTAL1 13|        |28  PC6 (D  6)
- *  RX0 (D 16) PD0 14|        |27  PC5 (D  5) TDI
- *  TX0 (D 17) PD1 15|        |26  PC4 (D  4) TDO
- *  RX1 (D 18) PD2 16|        |25  PC3 (D  3) TMS
- *  TX1 (D 19) PD3 17|        |24  PC2 (D  2) TCK
- *  PWM (D 20) PD4 18|        |23  PC1 (D  1) SDA
- *  PWM (D 21) PD5 19|        |22  PC0 (D  0) SCL
- *  PWM+(D 22) PD6 20|        |21  PD7 (D 23) PWM
- *                   +--------+
- *
- * PWM+ 644 only
- *
- * D0 ..D11 are on SubD25
- * D12..D15 are on screw connectors
- * D16..D17 are RS232 
- * D18..D24,D26 are on EXT. connectors
-
- ***********************************************************/
-
 // these arrays map port names (e.g. port B) to the
 // appropriate addresses for various functions (e.g. reading
 // and writing)
 const uint16_t PROGMEM port_to_mode_PGM[] = {
 	NOT_A_PORT,
-	(uint16_t) &DDRA,
-	(uint16_t) &DDRB,
-	(uint16_t) &DDRC,
-	(uint16_t) &DDRD,
+#ifdef PORTA
+  (uint16_t) &DDRA,
+#else
+	NOT_A_PORT,
+#endif 
+#ifdef PORTB
+  (uint16_t) &DDRB,
+#else
+	NOT_A_PORT,
+#endif
+#ifdef PORTC
+  (uint16_t) &DDRC,
+#else
+	NOT_A_PORT,
+#endif
+#ifdef PORTD
+  (uint16_t) &DDRD,
+#else
+	NOT_A_PORT,
+#endif
+#ifdef PORTE
+  (uint16_t) &DDRE,
+#endif
+#ifdef PORTF
+  (uint16_t) &DDRF,
+#endif
+#ifdef PORTG
+  (uint16_t) &DDRG,
+#endif
+#ifdef PORTH
+  (uint16_t) &DDRH,
+#endif
+#ifdef PORTJ
+  (uint16_t) &DDRJ,
+#endif
+#ifdef PORTK
+  (uint16_t) &DDRK,
+#endif
+#ifdef PORTL
+  (uint16_t) &DDRL,
+#endif
 };
 
 const uint16_t PROGMEM port_to_output_PGM[] = {
 	NOT_A_PORT,
-	(uint16_t) &PORTA,
-	(uint16_t) &PORTB,
-	(uint16_t) &PORTC,
-	(uint16_t) &PORTD,
+#ifdef PORTA
+  (uint16_t) 	&PORTA,
+#else
+	NOT_A_PORT,
+#endif
+#ifdef 	PORTB
+  (uint16_t) 	&PORTB,
+#else
+	NOT_A_PORT,
+#endif
+#ifdef 	PORTC
+  (uint16_t) 	&PORTC,
+#else
+	NOT_A_PORT,
+#endif
+#ifdef 	PORTD
+  (uint16_t) 	&PORTD,
+#else
+	NOT_A_PORT,
+#endif
+#ifdef 	PORTE
+  (uint16_t) 	&PORTE,
+#endif
+#ifdef 	PORTF
+  (uint16_t) 	&PORTF,
+#endif
+#ifdef 	PORTG
+  (uint16_t) 	&PORTG,
+#endif
+#ifdef 	PORTH
+  (uint16_t) 	&PORTH,
+#endif
+#ifdef 	PORTJ
+  (uint16_t) 	&PORTJ,
+#endif
+#ifdef 	PORTK
+  (uint16_t) 	&PORTK,
+#endif
+#ifdef 	PORTL
+  (uint16_t) 	&PORTL,
+#endif
 };
 
 const uint16_t PROGMEM port_to_input_PGM[] = {
 	NOT_A_PORT,
-	(uint16_t) &PINA,
-	(uint16_t) &PINB,
-	(uint16_t) &PINC,
-	(uint16_t) &PIND,
+#ifdef 	PORTA
+  (uint16_t) 	&PINA,
+#else
+	NOT_A_PORT,
+#endif
+#ifdef 	PORTB
+  (uint16_t) 	&PINB,
+#else
+	NOT_A_PORT,
+#endif
+#ifdef 	PORTC
+  (uint16_t) 	&PINC,
+#else
+	NOT_A_PORT,
+#endif
+#ifdef 	PORTD
+  (uint16_t) 	&PIND,
+#else
+	NOT_A_PORT,
+#endif
+#ifdef 	PORTE
+  (uint16_t) 	&PINE,
+#endif
+#ifdef 	PORTF
+  (uint16_t) 	&PINF,
+#endif
+#ifdef 	PORTG
+  (uint16_t) 	&PING,
+#endif
+#ifdef 	PORTH
+  (uint16_t) 	&PINH,
+#endif
+#ifdef 	PORTJ
+  (uint16_t) 	&PINJ,
+#endif
+#ifdef 	PORTK
+  (uint16_t) 	&PINK,
+#endif
+#ifdef 	PORTL
+  (uint16_t) 	&PINL,
+#endif
 };
 
 const uint8_t PROGMEM digital_pin_to_port_PGM[] = {
-/* 0 */
-	PC,	// PC0: SCL - J3_2
-	PC,	// PC1: SDA - J3_3
-	PC,	// PC2: TCK - J3_4
-	PC,	// PC3: TMS - J3_5
-	PC,	// PC4: TDO - J3_6
-	PC,	// PC5: TDI - J3_7
-	PC,	// PC6: TOSC1 - J3_8
-	PC,	// PC7: TOSC2 - J3_9
-/* 8 */
-	PA,	// PA0: ADC0 - A0
-	PA,	// PA1: ADC1 - A1
-	PA,	// PA2: ADC2 - A2
-	PA,	// PA3: ADC3 - A3
-	PA,	// PA4: ADC4 - ADC_1
-	PA,	// PA5: ADC5 - ADC_2
-	PA,	// PA6: ADC6 - ADC_3
-	PA,	// PA7: ADC7 - ADC_4
-/* 16 */
-	PD,	// PD0: RXD - RS232_RxD
-	PD,	// PD1: TXD - RS232_TxD
-	PD,	// PD2: INT0 - LED_1
-	PD,	// PD3: INT1 - RFM12_IRQ
-	PD,	// PD4: OC1B - LED_2
-	PD,	// PD5: OC1A - RFM12_CS
-#ifdef COM21
-	PD,	// PD6: ICP1 - LED_3
-	PD,	// PD7: OC2 - SDcard_INS
-#else
-	PD,	// PD6: OC2B - LED_3
-	PD,	// PD7: OC2A - SDcard_INS
-#endif
-/* 24 */
-	PB,	// PB0: T0 - IR_Rx
-	PB,	// PB1: T1 - JUMP_PROG
-	PB,	// PB2: INT2 - ENC28J60_IRQ
-	PB,	// PB3: OC0 - SDcard_CS
-#ifdef COM0B1
-	PB,	// PB4: SS - ENC28J60_CS
-#else
-	PB,	// PB4: SS - ENC28J60_CS
-#endif
-	PB,	// PB5: MOSI - SPI_MOSI
-	PB,	// PB6: MISO - SPI_MISO
-	PB,	// PB7: SCK - SPI_SCK
+#define pinDef(p,B,T,...)	(P##p),
+#include BOARD_DEF
+#undef pinDef
 };
 
 const uint8_t PROGMEM digital_pin_to_bit_mask_PGM[] = {
-/* 0 */
-	_BV( 0 ),	// PC0: SCL - J3_2
-	_BV( 1 ),	// PC1: SDA - J3_3
-	_BV( 2 ),	// PC2: TCK - J3_4
-	_BV( 3 ),	// PC3: TMS - J3_5
-	_BV( 4 ),	// PC4: TDO - J3_6
-	_BV( 5 ),	// PC5: TDI - J3_7
-	_BV( 6 ),	// PC6: TOSC1 - J3_8
-	_BV( 7 ),	// PC7: TOSC2 - J3_9
-/* 8 */
-	_BV( 0 ),	// PA0: ADC0 - A0
-	_BV( 1 ),	// PA1: ADC1 - A1
-	_BV( 2 ),	// PA2: ADC2 - A2
-	_BV( 3 ),	// PA3: ADC3 - A3
-	_BV( 4 ),	// PA4: ADC4 - ADC_1
-	_BV( 5 ),	// PA5: ADC5 - ADC_2
-	_BV( 6 ),	// PA6: ADC6 - ADC_3
-	_BV( 7 ),	// PA7: ADC7 - ADC_4
-/* 16 */
-	_BV( 0 ),	// PD0: RXD - RS232_RxD
-	_BV( 1 ),	// PD1: TXD - RS232_TxD
-	_BV( 2 ),	// PD2: INT0 - LED_1
-	_BV( 3 ),	// PD3: INT1 - RFM12_IRQ
-	_BV( 4 ),	// PD4: OC1B - LED_2
-	_BV( 5 ),	// PD5: OC1A - RFM12_CS
-#ifdef COM21
-	_BV( 6 ),	// PD6: ICP1 - LED_3
-	_BV( 7 ),	// PD7: OC2 - SDcard_INS
-#else
-	_BV( 6 ),	// PD6: OC2B - LED_3
-	_BV( 7 ),	// PD7: OC2A - SDcard_INS
-#endif
-/* 24 */
-	_BV( 0 ),	// PB0: T0 - IR_Rx
-	_BV( 1 ),	// PB1: T1 - JUMP_PROG
-	_BV( 2 ),	// PB2: INT2 - ENC28J60_IRQ
-	_BV( 3 ),	// PB3: OC0 - SDcard_CS
-#ifdef COM0B1
-	_BV( 4 ),	// PB4: SS - ENC28J60_CS
-#else
-	_BV( 4 ),	// PB4: SS - ENC28J60_CS
-#endif
-	_BV( 5 ),	// PB5: MOSI - SPI_MOSI
-	_BV( 6 ),	// PB6: MISO - SPI_MISO
-	_BV( 7 ),	// PB7: SCK - SPI_SCK
+#define pinDef(P,B,T,...)	_BV(B),
+#include BOARD_DEF
+#undef pinDef
 };
 
 const uint8_t PROGMEM digital_pin_to_timer_PGM[] = {
-/* 0 */
-	 NOT_ON_TIMER,	// PC0: SCL - J3_2
-	 NOT_ON_TIMER,	// PC1: SDA - J3_3
-	 NOT_ON_TIMER,	// PC2: TCK - J3_4
-	 NOT_ON_TIMER,	// PC3: TMS - J3_5
-	 NOT_ON_TIMER,	// PC4: TDO - J3_6
-	 NOT_ON_TIMER,	// PC5: TDI - J3_7
-	 NOT_ON_TIMER,	// PC6: TOSC1 - J3_8
-	 NOT_ON_TIMER,	// PC7: TOSC2 - J3_9
-/* 8 */
-	 NOT_ON_TIMER,	// PA0: ADC0 - A0
-	 NOT_ON_TIMER,	// PA1: ADC1 - A1
-	 NOT_ON_TIMER,	// PA2: ADC2 - A2
-	 NOT_ON_TIMER,	// PA3: ADC3 - A3
-	 NOT_ON_TIMER,	// PA4: ADC4 - ADC_1
-	 NOT_ON_TIMER,	// PA5: ADC5 - ADC_2
-	 NOT_ON_TIMER,	// PA6: ADC6 - ADC_3
-	 NOT_ON_TIMER,	// PA7: ADC7 - ADC_4
-/* 16 */
-	 NOT_ON_TIMER,	// PD0: RXD - RS232_RxD
-	 NOT_ON_TIMER,	// PD1: TXD - RS232_TxD
-	 NOT_ON_TIMER,	// PD2: INT0 - LED_1
-	 NOT_ON_TIMER,	// PD3: INT1 - RFM12_IRQ
-	 TIMER1B,	// PD4: OC1B - LED_2
-	 TIMER1A,	// PD5: OC1A - RFM12_CS
-#ifdef COM21
-	 NOT_ON_TIMER,	// PD6: ICP1 - LED_3
-	 TIMER2,	// PD7: OC2 - SDcard_INS
-#else
-	 TIMER2B,	// PD6: OC2B - LED_3
-	 TIMER2A,	// PD7: OC2A - SDcard_INS
-#endif
-/* 24 */
-	 NOT_ON_TIMER,	// PB0: T0 - IR_Rx
-	 NOT_ON_TIMER,	// PB1: T1 - JUMP_PROG
-	 NOT_ON_TIMER,	// PB2: INT2 - ENC28J60_IRQ
-	 TIMER0A,	// PB3: OC0 - SDcard_CS
-#ifdef COM0B1
-	 TIMER0B,	// PB4: SS - ENC28J60_CS
-#else
-	 NOT_ON_TIMER,	// PB4: SS - ENC28J60_CS
-#endif
-	 NOT_ON_TIMER,	// PB5: MOSI - SPI_MOSI
-	 NOT_ON_TIMER,	// PB6: MISO - SPI_MISO
-	 NOT_ON_TIMER,	// PB7: SCK - SPI_SCK
+#define pinDef(P,B,T,...)	(T),
+#include BOARD_DEF
+#undef pinDef
 };
 
-#endif
+#ifdef MAP_PCINT
+const int8_t PROGMEM digital_pin_to_pcint_PGM[] = {
+#define pinDef(P,B,T,F,U,I...)	(I),
+#include BOARD_DEF
+#undef pinDef
+};
+#endif	/* MAP_PCINT */
 
-#endif
+#ifdef MAP_ANALOG_CHANNEL
+const uint8_t PROGMEM analog_pin_to_channel_PGM[] = {
+#define anaDef(A,P,C,...)	(C),
+#include BOARD_DEF
+#undef anaDef
+};
+#endif	/* MAP_ANALOG_CHANNEL */
+
+#ifdef MAP_ANALOG_PIN
+const int8_t PROGMEM analog_input_to_digital_pin_PGM[] = {
+#define anaDef(A,P,C,...)	(P),
+#include BOARD_DEF
+#undef anaDef
+};
+#endif	/* MAP_ANALOG_PIN */
+
+
+#endif	/* ARDUINO_MAIN */
+
+#endif	/* Pins_Arduino_h */

@@ -194,7 +194,7 @@ asm("  .section .version\n"
 #if defined ( LED_B ) && defined ( LED_P )
 #define LED_DDR  _REG(DDR,LED_P)
 #define LED_PORT _REG(PORT,LED_P)
-#if defined(__AVR_ATmega168P__) || defined(__AVR_ATmega168__) || defined(__AVR_ATmega328P__) || defined(__AVR_ATmega164P__) || defined(__AVR_ATmega324P__)
+#if defined(__AVR_ATmega168P__) || defined(__AVR_ATmega168__) || defined(__AVR_ATmega328P__) || defined(__AVR_ATmega164P__) || defined(__AVR_ATmega324P__) || defined(__AVR_ATmega48__) || defined(__AVR_ATmega88__)
 #define LED_PIN  _REG(PIN,LED_P)
 #endif	/* can toggle pin with write ti PINx */
 #define LED      _REG(PIN,_REG(LED_P,LED_B))
@@ -320,7 +320,9 @@ void putch(char);
 uint8_t getch(void);
 static inline void getNch(uint8_t); /* "static inline" is a compiler hint to reduce code size */
 void verifySpace();
+#if LED_START_FLASHES > 0
 static inline void flash_led(uint8_t);
+#endif
 uint8_t getLen();
 static inline void watchdogReset();
 void watchdogConfig(uint8_t x);
@@ -413,7 +415,7 @@ int main(void) {
   MCUSR = 0;
   if (!(ch & _BV(EXTRF))) appStart();
 
-#if LED_START_FLASHES > 0
+#if (LED_START_FLASHES > 0) && defined(TCCR1B) 
   // Set up Timer 1 for timeout counter
   TCCR1B = _BV(CS12) | _BV(CS10); // div 1024
 #endif
@@ -444,7 +446,8 @@ int main(void) {
 #endif
 
 #ifdef SOFT_UART
-  /* Set TX pin as output */
+  /* Set TX pin as output and hi */
+  UART_PORT |= _BV(UART_TX_BIT);
   UART_DDR |= _BV(UART_TX_BIT);
 #endif
 
@@ -725,6 +728,7 @@ uint8_t getch(void) {
     :
       "r25"
 );
+  watchdogReset();
 #else
   while(!(UCSR0A & _BV(RXC0)))
     ;
@@ -790,6 +794,7 @@ void verifySpace() {
 #if LED_START_FLASHES > 0
 void flash_led(uint8_t count) {
   do {
+#if defined(TCCR1B)
     TCNT1 = -(F_CPU/(1024*16));
     TIFR1 = _BV(TOV1);
     while(!(TIFR1 & _BV(TOV1)));
@@ -798,6 +803,15 @@ void flash_led(uint8_t count) {
 #else
     LED_PIN |= _BV(LED);
 #endif
+#else  /* TCCR1B */
+    uint32_t abc;
+    for(abc=0;abc<(F_CPU/50);abc++) {
+      LED_PORT |= _BV(LED);
+    }
+    for(abc=0;abc<(F_CPU/50);abc++) {
+      LED_PORT &= ~_BV(LED);
+    }
+#endif  /* TCCR1B */
     watchdogReset();
   } while (--count);
 }

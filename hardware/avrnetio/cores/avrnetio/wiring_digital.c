@@ -32,17 +32,25 @@ void pinMode(uint8_t pin, uint8_t mode)
 {
 	uint8_t bit = digitalPinToBitMask(pin);
 	uint8_t port = digitalPinToPort(pin);
-	volatile uint8_t *reg;
+	volatile uint8_t *reg, *out;
 
 	if (port == NOT_A_PORT) return;
 
 	// JWS: can I let the optimizer do this?
 	reg = portModeRegister(port);
+	out = portOutputRegister(port);
 
 	if (mode == INPUT) { 
 		uint8_t oldSREG = SREG;
                 cli();
 		*reg &= ~bit;
+		*out &= ~bit;
+		SREG = oldSREG;
+	} else if (mode == INPUT_PULLUP) {
+		uint8_t oldSREG = SREG;
+                cli();
+		*reg &= ~bit;
+		*out |= bit;
 		SREG = oldSREG;
 	} else {
 		uint8_t oldSREG = SREG;
@@ -109,14 +117,23 @@ static void turnOffPWM(uint8_t timer)
 
 		#if defined(TCCR4A) && defined(COM4A1)
 		case  TIMER4A:  cbi(TCCR4A, COM4A1);    break;
-		#endif
+		#endif					
 		#if defined(TCCR4A) && defined(COM4B1)
 		case  TIMER4B:  cbi(TCCR4A, COM4B1);    break;
 		#endif
 		#if defined(TCCR4A) && defined(COM4C1)
 		case  TIMER4C:  cbi(TCCR4A, COM4C1);    break;
+		#endif			
+		#if defined(TCCR4C) && defined(COM4D1)
+		case TIMER4D:	cbi(TCCR4C, COM4D1);	break;
+		#endif			
+			
+                #if defined(TCCR4C) && defined(COM4D1) && defined(PWM4D)
+	        case TIMER4D:   cbi(TCCR4C, COM4D1);
+                #elif defined(TCCR4A) && defined(COM4D1)
+	        case TIMER4D:   cbi(TCCR4A, COM4D1);
 		#endif
-		#if defined(TCCR5A)
+ 		#if defined(TCCR5A)
 		case  TIMER5A:  cbi(TCCR5A, COM5A1);    break;
 		case  TIMER5B:  cbi(TCCR5A, COM5B1);    break;
 		case  TIMER5C:  cbi(TCCR5A, COM5C1);    break;

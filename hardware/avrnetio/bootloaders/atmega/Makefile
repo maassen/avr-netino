@@ -123,7 +123,7 @@ ANIO = anio32 anio644 anio644p anio1284p anio16 anio164p anio324p
 # standard ARDUINO boards with ATmega*8 CPUs at 16MHz
 ARDUINOx8 = duemilanove diecimila ng ng8 ng88 
 # small ARDUINO boards with ATmega*8 CPUs using internal RC oszillator
-ARDUINOx8RC = lilypad 
+ARDUINOx8RC = lilypad atm48
 # ARDUINO Mega boards
 ARDUINO_MEGA = mega
 # all arduino
@@ -140,6 +140,8 @@ RJMP_AWK = '{x=strtonum($$0)/2-1+0xC000;printf("%i %i",int(x/256),x%256)}'
 anio: $(ANIO)
 
 arduino8: $(ARDUINOx8)
+
+RC: $(ARDUINOx8RC)
 
 tiny: $(TINY)
 
@@ -163,7 +165,7 @@ diecimila diecimila_isp: CFLAGS += '-DMAX_TIME_COUNT=F_CPU>>4'
 diecimila diecimila_isp: BAUD = $(if $(OPTI_BAUD),$(OPTI_BAUD),19200)
 ifeq ($(PROGRAM),optiboot)
 diecimila diecimila_isp: LDSECTION  = 0x3e00
-diecimila diecimila_isp: EFUSE = FC # 04
+diecimila diecimila_isp: EFUSE = 04 # FC
 else
 diecimila diecimila_isp: LDSECTION  = 0x3800
 diecimila diecimila_isp: EFUSE = 00
@@ -253,6 +255,24 @@ lilypad lilypad_isp: EFUSE = 00
 endif
 lilypad lilypad_isp: LFUSE = E2
 lilypad lilypad_isp: HFUSE = DD
+
+atm48 atm48_isp: TARGET = atm48
+atm48 atm48_isp: MCU_TARGET = atmega48
+atm48 atm48_isp: AVR_FREQ = 8000000L
+atm48 atm48_isp: LOCK = 0xff
+atm48 atm48_isp: ULOCK = 0xff
+atm48 atm48_isp: LDSECTION  = 0x0dc0
+atm48 atm48_isp: CFLAGS += '-DMAX_TIME_COUNT=F_CPU>>1' 
+atm48 atm48_isp: CFLAGS += '-DVIRTUAL_BOOT_PARTITION' '-DBOOT_SEC=$(LDSECTION)'
+#atm48 atm48_isp: CFLAGS += '-DLED_B=5' '-DLED_P=B' '-DNUM_LED_FLASHES=3' 
+atm48 atm48_isp: BAUD = $(if $(OPTI_BAUD),$(OPTI_BAUD),19200)
+ifeq ($(PROGRAM),optiboot)
+atm48 atm48_isp: EFUSE = FE # 00
+else
+atm48 atm48_isp: EFUSE = FE # 00
+endif
+atm48 atm48_isp: LFUSE = E2
+atm48 atm48_isp: HFUSE = DF
 
 ############################################################
 # Arduino Megas
@@ -409,10 +429,11 @@ luminet luminet_isp: EFUSE = FE # Self-programming enable
 # ATtiny (8MHz clocked platforms)
 ############################################################
 $(TINY) $(TINY:%=%_isp): AVR_FREQ = 8000000L
-$(TINY) $(TINY:%=%_isp): CFLAGS += '-DSOFT_UART' '-DBAUD_RATE=9600'
+$(TINY) $(TINY:%=%_isp): CFLAGS += '-DSOFT_UART' #'-DBAUD_RATE=9600'
 $(TINY) $(TINY:%=%_isp): CFLAGS += '-DVIRTUAL_BOOT_PARTITION'
 $(TINY) $(TINY:%=%_isp): BAUD = 9600
 $(TINY) $(TINY:%=%_isp): BOARD = ATtiny
+$(TINY) $(TINY:%=%_isp): variant = tiny
 
 tiny25 tiny25_isp: TARGET = tiny25
 tiny25 tiny25_isp: MCU_TARGET = attiny25
@@ -428,14 +449,21 @@ tiny25 tiny25_isp: PREDAT = $(shell echo $(LDSECTION)|$(AWK) $(RJMP_AWK))
 
 tiny45 tiny45_isp: TARGET = tiny45
 tiny45 tiny45_isp: MCU_TARGET = attiny45
-tiny45 tiny45_isp: CFLAGS += '-DUART_P=B'
+tiny45 tiny45_isp: CFLAGS += '-DUART_P=B' 
+tiny45 tiny45_isp: CFLAGS += '-DLED_P=B' '-DLED_B=4' '-DNUM_LED_FLASHES=1' 
+# 
 ifeq ($(PROGRAM),optiboot)
-tiny45 tiny45_isp: LDSECTION  = 0xd80 
+tiny45 tiny45_isp: LDSECTION  = 0xd00 
+#tiny45 tiny45_isp: LDSECTION  = 0x0 
 else
 endif
-tiny45 tiny45_isp: HFUSE = DF # Brownout disabled
-tiny45 tiny45_isp: LFUSE = 62 # 1MHz internal oscillator, slowly rising power
+#tiny45 tiny45_isp: HFUSE = DF # Brownout disabled
+#tiny45 tiny45_isp: LFUSE = 62 # 1MHz internal oscillator, slowly rising power
+#tiny45 tiny45_isp: EFUSE = FE # Self-programming enable
+tiny45 tiny45_isp: HFUSE = D5 # Brownout 2.7V + SPIEN + EESAVE
+tiny45 tiny45_isp: LFUSE = E2 # 8MHz internal oscillator, slowly rising power
 tiny45 tiny45_isp: EFUSE = FE # Self-programming enable
+tiny45 tiny45_isp: PREDAT = $(shell echo $(LDSECTION)|$(AWK) $(RJMP_AWK))
 
 tiny44 tiny44_isp: TARGET = tiny44
 tiny44 tiny44_isp: MCU_TARGET = attiny44

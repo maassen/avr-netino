@@ -20,6 +20,7 @@ extern "C"{
 
 #define INPUT 0x0
 #define OUTPUT 0x1
+#define INPUT_PULLUP 0x2
 
 #define true 0x1
 #define false 0x0
@@ -36,23 +37,51 @@ extern "C"{
 #define LSBFIRST 0
 #define MSBFIRST 1
 
+  /* external interrupts */
 #define CHANGE 1
 #define FALLING 2
 #define RISING 3
 
-#if defined(__AVR_ATtiny24__) || defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny84__) || defined(__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
-#define DEFAULT 0
-#define EXTERNAL 1
-#define INTERNAL 2
-#else  
-#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__)
-#define INTERNAL1V1 2
-#define INTERNAL2V56 3
+  /* analog reference */
+#if defined(__AVR_ATtiny24__) || defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny84__) 
+#define DEFAULT		0
+#define EXTERNAL	(1 << 6)
+#define INTERNAL	(2 << 6)	/* 1.1 V */
+#define ADCH_TEMP	0x22		/* must be ored with INTERNAL */
+#define ADCH_BG		0x21
+
+#elif defined(__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__)
+#define DEFAULT		0
+#define EXTERNAL	(1 << 6)
+#define INTERNAL1V1	(2 << 6)	/* 1.1 V */
+#define INTERNAL	INTERNAL1V1
+#define INTERNAL2V56	0x90
+#define ADCH_TEMP      	0x0f		/* must be ored with INTERNAL */
+#define ADCH_BG		0x0c
+
+#elif defined(__AVR_ATtiny13__)
+#define DEFAULT		0		/* Vcc */
+#define INTERNAL	(1 << 6)	/* 1.1 V */
+
+#else  /* ATmegas */
+#if defined(__AVR_ATmega1280__) || defined(__AVR_ATmega2560__) || defined(__AVR_ATmega1284__) || defined(__AVR_ATmega1284P__) || defined(__AVR_ATmega644__) || defined(__AVR_ATmega644A__) || defined(__AVR_ATmega644P__) || defined(__AVR_ATmega644PA__)
+#define INTERNAL1V1	(2 << 6)
+#define INTERNAL	INTERNAL1V1
+#define INTERNAL2V56	(3 << 6)
+#define ADCH_BG		0x1e
+#else  /* ATmegaX8 */
+#define INTERNAL	(3 << 6)
+#if defined(__AVR_ATmega32U4__) 
+#define ADCH_TEMP	0x07		/* must be ored with INTERNAL */
+#define ADCH_BG		0x1e
 #else
-#define INTERNAL 3
-#endif
-#define DEFAULT 1
-#define EXTERNAL 0
+#define ADCH_TEMP	0x08		/* must be ored with INTERNAL */
+#define ADCH_BG		0x0e
+#endif	/* ATmega32U4 */
+#endif	/* ATmega1280 */
+#define DEFAULT		(1 << 6)
+#define EXTERNAL	0
+
 #endif
 
 // undefine stdlib's abs if encountered
@@ -73,8 +102,8 @@ extern "C"{
 #define noInterrupts() cli()
 
 #define clockCyclesPerMicrosecond() ( F_CPU / 1000000L )
-#define clockCyclesToMicroseconds(a) ( ((a) * 1000L) / (F_CPU / 1000L) )
-#define microsecondsToClockCycles(a) ( ((a) * (F_CPU / 1000L)) / 1000L )
+#define clockCyclesToMicroseconds(a) ( (a) / clockCyclesPerMicrosecond() )
+#define microsecondsToClockCycles(a) ( (a) * clockCyclesPerMicrosecond() )
 
 #define lowByte(w) ((uint8_t) ((w) & 0xff))
 #define highByte(w) ((uint8_t) ((w) >> 8))

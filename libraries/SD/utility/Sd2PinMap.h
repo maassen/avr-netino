@@ -41,8 +41,8 @@ uint8_t const SCK_PIN = SCK;
 //------------------------------------------------------------------------------
 #if defined(NUM_DIGITAL_PINS)		/* arduino >= 1.0 */
 static const uint8_t digitalPinCount = NUM_DIGITAL_PINS;
-#elif defined(BOARD_DEF)		/* avrnetio core */
-static const uint8_t digitalPinCount = NOT_A_PIN;
+#elif defined(BOARD_DEF)		/* avrnetino core */
+static const uint8_t digitalPinCount = pins_count_digital;
 #else
 static const uint8_t digitalPinCount = (
 	(digital_pin_to_timer_PGM-digital_pin_to_bit_mask_PGM) == 

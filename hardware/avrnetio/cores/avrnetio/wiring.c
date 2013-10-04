@@ -24,9 +24,31 @@
 
 #include "wiring_private.h"
 
+#ifndef TIMER0_CLK_SRC
+#if F_CPU < 250000L
+#define TIMER0_CLK_SRC 1	/* CS0 :1 */
+#elif F_CPU < 2000000L
+#define TIMER0_CLK_SRC 2	/* CS0 | CS1 :8*/
+#else
+#define TIMER0_CLK_SRC 3	/* CS0 | CS1 :64*/
+#endif
+#endif
+
+#if TIMER0_CLK_SRC == 1
+#define MICROSECONDS_PER_TIMER0_OVERFLOW (clockCyclesToMicroseconds(1 * 256))
+#elif TIMER0_CLK_SRC == 2
+#define MICROSECONDS_PER_TIMER0_OVERFLOW (clockCyclesToMicroseconds(8 * 256))
+#elif TIMER0_CLK_SRC == 3
 // the prescaler is set so that timer0 ticks every 64 clock cycles, and the
 // the overflow handler is called every 256 ticks.
 #define MICROSECONDS_PER_TIMER0_OVERFLOW (clockCyclesToMicroseconds(64 * 256))
+#elif TIMER0_CLK_SRC == 4
+#define MICROSECONDS_PER_TIMER0_OVERFLOW (clockCyclesToMicroseconds(256 * 256))
+#elif TIMER0_CLK_SRC == 5
+#define MICROSECONDS_PER_TIMER0_OVERFLOW (clockCyclesToMicroseconds(1024 * 256))
+#else 
+#error "TIMER0_CLK_SRC has illigal value"
+#endif
 
 // the whole number of milliseconds per timer0 overflow
 #define MILLIS_INC (MICROSECONDS_PER_TIMER0_OVERFLOW / 1000)
@@ -34,17 +56,19 @@
 // the fractional number of milliseconds per timer0 overflow. we shift right
 // by three to fit these numbers into a byte. (for the clock speeds we care
 // about - 8 and 16 MHz - this doesn't lose precision.)
-#define FRACT_INC ((MICROSECONDS_PER_TIMER0_OVERFLOW % 1000) >> 3)
-#define FRACT_MAX (1000 >> 3)
+// Mic: shift by only 2, for better precision, also changed isr
+#define FRACT_INC ((MICROSECONDS_PER_TIMER0_OVERFLOW % 1000) >> 2)
+#define FRACT_MAX ((1000 >> 2) - FRACT_INC)
 
 volatile unsigned long timer0_overflow_count = 0;
 volatile unsigned long timer0_millis = 0;
 static unsigned char timer0_fract = 0;
 
-#if defined(__AVR_ATtiny24__) || defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny84__)
-SIGNAL(TIM0_OVF_vect)
+//#if defined(__AVR_ATtiny24__) || defined(__AVR_ATtiny44__) || defined(__AVR_ATtiny84__)
+#ifndef TIMER0_OVF_vect
+ISR(TIM0_OVF_vect)
 #else
-SIGNAL(TIMER0_OVF_vect)
+ISR(TIMER0_OVF_vect)
 #endif
 {
 	// copy these to local variables so they can be stored in registers
@@ -53,10 +77,11 @@ SIGNAL(TIMER0_OVF_vect)
 	unsigned char f = timer0_fract;
 
 	m += MILLIS_INC;
-	f += FRACT_INC;
 	if (f >= FRACT_MAX) {
 		f -= FRACT_MAX;
 		m += 1;
+	} else {
+	  f += FRACT_INC;
 	}
 
 	timer0_fract = f;
@@ -124,8 +149,26 @@ void delayMicroseconds(unsigned int us)
 	// calling avrlib's delay_us() function with low values (e.g. 1 or
 	// 2 microseconds) gives delays longer than desired.
 	//delay_us(us);
+#if F_CPU >= 20000000L
+	// for the 20 MHz clock on rare Arduino boards
 
-#if F_CPU >= 16000000L
+	// for a one-microsecond delay, simply wait 2 cycle and return. The overhead
+	// of the function call yields a delay of exactly a one microsecond.
+	__asm__ __volatile__ (
+		"nop" "\n\t"
+		"nop"); //just waiting 2 cycle
+	if (--us == 0)
+		return;
+
+	// the following loop takes a 1/5 of a microsecond (4 cycles)
+	// per iteration, so execute it five times for each microsecond of
+	// delay requested.
+	us = (us<<2) + us; // x5 us
+
+	// account for the time taken in the preceeding commands.
+	us -= 2;
+
+#elif F_CPU >= 16000000L
 	// for the 16 MHz clock on most Arduino boards
 
 	// for a one-microsecond delay, simply return.  the overhead
@@ -187,23 +230,26 @@ void init()
 #endif  
 
 	// set timer 0 prescale factor to 64
-#if defined(__AVR_ATmega128__)
-	// CPU specific: different values for the ATmega128
-	sbi(TCCR0, CS02);
-#elif defined(TCCR0) && defined(CS01) && defined(CS00)
-	// this combination is for the standard atmega8
-	sbi(TCCR0, CS01);
-	sbi(TCCR0, CS00);
-#elif defined(TCCR0B) && defined(CS01) && defined(CS00)
+#if defined(TCCR0B) 
 	// this combination is for the standard 168/328/1280/2560
-	sbi(TCCR0B, CS01);
-	sbi(TCCR0B, CS00);
-#elif defined(TCCR0A) && defined(CS01) && defined(CS00)
+#define TCCR0_CLK_SRC TCCR0B
+#elif defined(TCCR0A)
 	// this combination is for the __AVR_ATmega645__ series
-	sbi(TCCR0A, CS01);
-	sbi(TCCR0A, CS00);
+#define TCCR0_CLK_SRC TCCR0A
+#elif defined(TCCR0)
+	// this combination is for the standard atmega8
+#define TCCR0_CLK_SRC TCCR0
 #else
 	#error Timer 0 prescale factor 64 not set correctly
+#endif
+#if (TIMER0_CLK_SRC & 4) && defined(CS02)
+	sbi(TCCR0_CLK_SRC, CS02);
+#endif
+#if (TIMER0_CLK_SRC & 2) && defined(CS01)
+	sbi(TCCR0_CLK_SRC, CS01);
+#endif
+#if (TIMER0_CLK_SRC & 1) && defined(CS00)
+	sbi(TCCR0_CLK_SRC, CS00);
 #endif
 
 	// enable timer 0 overflow interrupt
@@ -264,12 +310,21 @@ void init()
 	sbi(TCCR3B, CS30);
 	sbi(TCCR3A, WGM30);		// put timer 3 in 8-bit phase correct pwm mode
 #endif
-	
+
+#if defined(TCCR4A) && defined(TCCR4B) && defined(TCCR4D) /* beginning of timer4 block for 32U4 and similar */
+	sbi(TCCR4B, CS42);		// set timer4 prescale factor to 64
+	sbi(TCCR4B, CS41);
+	sbi(TCCR4B, CS40);
+	sbi(TCCR4D, WGM40);		// put timer 4 in phase- and frequency-correct PWM mode	
+	sbi(TCCR4A, PWM4A);		// enable PWM mode for comparator OCR4A
+	sbi(TCCR4C, PWM4D);		// enable PWM mode for comparator OCR4D
+#else /* beginning of timer4 block for ATMEGA1280 and ATMEGA2560 */
 #if defined(TCCR4B) && defined(CS41) && defined(WGM40)
 	sbi(TCCR4B, CS41);		// set timer 4 prescale factor to 64
 	sbi(TCCR4B, CS40);
 	sbi(TCCR4A, WGM40);		// put timer 4 in 8-bit phase correct pwm mode
 #endif
+#endif /* end timer4 block for ATMEGA1280/2560 and similar */	
 
 #if defined(TCCR5B) && defined(CS51) && defined(WGM50)
 	sbi(TCCR5B, CS51);		// set timer 5 prescale factor to 64
