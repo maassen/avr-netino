@@ -1,0 +1,195 @@
+/*********************************************-*- mode:c -*-
+ * board_arduino.h
+ * this file contains all board specific definitions
+ * not the cpu spcific ones!
+ *
+ * you must define one of the folowing macros to 
+ * use this file:
+ *
+ * Names for special pins or hardware constants:
+ *   -  as const static:
+ *      #define defConstant(N,V) const static uint8_t N = V;
+ *   -  as enum element
+ *      #define defConstant(N,V) N = V,
+ * defConstants		get all pin fuctions by names
+ *
+ * pinDef(p,b,t,f,u,i,...)	define a pin by port,bit,timer,function,usage,pcint...
+ *   - all in 1 byte (for m168/m328/m32/m644(p)
+ *     #define pinDef(P,B,T,...)	((((P)-1)<<5) | (B) | ((T)<<3))
+ *   - all in 2 byte (for m1280/m2560
+ *     #define pinDef(P,B,T,...)	((((P)-1)<<8) | (B) | ((T)<<3))
+ *   - only port for digital_pin_to_port_PGM[]
+ *     #define pinDef(P,...)	(P)
+ *   - only bit mask for digital_pin_to_bit_mask_PGM[]
+ *     #define pinDef(P,B,...)	_BV(B)
+ *   - only timer for digital_pin_to_timer_PGM[]
+ *     #define pinDef(P,B,T,...)	(T)
+ *
+ ***********************************************************
+ * Board:	Arduino 1/2009/10000 ... (all with m8/m168/m328)
+ * (C) M. Maassen	mic.maassen@gmail.com
+ * On the Arduino board, digital pins are also used
+ * for the analog output (software PWM).  Analog input
+ * pins are a separate set.
+ * ATmega with 3 Ports = Arduino */
+// ATMEL ATMEGA8 & 168 / ARDUINO
+//
+//                  +-\/-+
+// RST        PC6  1|    |28  PC5 (AI 5)
+//      (D 0) PD0  2|    |27  PC4 (AI 4)
+//      (D 1) PD1  3|    |26  PC3 (AI 3)
+//      (D 2) PD2  4|    |25  PC2 (AI 2)
+// PWM+ (D 3) PD3  5|    |24  PC1 (AI 1)
+//      (D 4) PD4  6|    |23  PC0 (AI 0)
+//            VCC  7|    |22  GND
+//            GND  8|    |21  AREF
+// XTAL1      PB6  9|    |20  AVCC
+// XTAL2      PB7 10|    |19  PB5 (D 13)
+// PWM+ (D 5) PD5 11|    |18  PB4 (D 12)
+// PWM+ (D 6) PD6 12|    |17  PB3 (D 11) PWM
+//      (D 7) PD7 13|    |16  PB2 (D 10) PWM
+//      (D 8) PB0 14|    |15  PB1 (D 9) PWM
+//                  +----+
+//
+// (PWM+ indicates the additional PWM pins on the ATmega168.)
+
+/***********************************************************
+ * things we want allways 
+ ***********************************************************/
+#ifndef ARDUINO_LEONARDO
+// Arduino board with ATmega32u4 
+#define ARDUINO_LEONARDO	0x20150214	/* Date YYYYMMDD */
+#endif
+
+#ifdef pinDef
+/***********************************************************
+ * mapping from pin number to port,bit,timer,function,usage,pcint...
+ ***********************************************************/
+/* ATmega32U4 (USB) = Arduino Leonardo/Micro/LillyPadUSB/... */
+/* 0 */
+pinDef( D, 2 , NOT_ON_TIMER ,	INT2	, RXD,	-1)
+pinDef( D, 3 , NOT_ON_TIMER ,	INT3	, TXD,	-1)
+pinDef( D, 1 , NOT_ON_TIMER ,	INT1	, SDA,	-1)
+pinDef( D, 0 , TIMER0B ,	INT0	, SCL,	-1)
+pinDef( D, 4 , NOT_ON_TIMER ,	ADC8	, D4,	-1)
+pinDef( C, 6 , TIMER3A ,	OC3A	, D5,	-1)
+pinDef( D, 7 , TIMER4D ,	ADC10	, D6,	-1)
+pinDef( E, 6 , NOT_ON_TIMER ,	INT6	, D7,	-1)
+/* pin 8 */
+pinDef( B, 4 , NOT_ON_TIMER ,	ADC11	, D8,	4)
+pinDef( B, 5 , TIMER1A ,	ADC12	, D9,	5)
+pinDef( B, 6 , TIMER1B ,	ADC13	, D10,	6)
+pinDef( B, 7 , TIMER0A ,	RTS	, D11,	7)
+pinDef( D, 6 , NOT_ON_TIMER ,	ADC9	, D12,	-1)
+pinDef( C, 7 , TIMER4A ,	CLK0	, LED,	-1)
+pinDef( B, 3 , NOT_ON_TIMER ,	MISO	, D14,	3)
+pinDef( B, 1 , NOT_ON_TIMER ,	SCK	, D15,	1)
+pinDef( B, 2 , NOT_ON_TIMER ,	MOSI	, D16,	2)
+pinDef( B, 0 , NOT_ON_TIMER ,	SS	, RxLED,0)
+/* pin 18 = A0 */
+pinDef( F, 7 , NOT_ON_TIMER ,	ADC7	, A0,	-1)
+pinDef( F, 6 , NOT_ON_TIMER ,	ADC6	, A1,	-1)
+pinDef( F, 5 , NOT_ON_TIMER ,	ADC5	, A2,	-1)
+pinDef( F, 4 , NOT_ON_TIMER ,	ADC4	, A3,	-1)
+pinDef( F, 1 , NOT_ON_TIMER ,	ADC1	, A4,	-1)
+pinDef( F, 0 , NOT_ON_TIMER ,	ADC0	, A5,	-1)
+/* pin 24 - this pin is not accessable */
+pinDef( D, 5 , NOT_ON_TIMER  ,	CTS	, TxLED,-1)
+#endif /* pinDef */
+
+#ifdef anaDef
+/***********************************************************
+ * mapping from analog pin to:
+ * A*,digPin,adcChannel,
+ * in order of analog input (Ax)
+ ***********************************************************/
+anaDef( 0, 18, 7)
+anaDef( 1, 19, 6)
+anaDef( 2, 20, 5)
+anaDef( 3, 21, 4)
+anaDef( 4, 22, 1)
+anaDef( 5, 23, 0)
+anaDef( 6, 4,  8)
+anaDef( 7, 6, 10)
+anaDef( 8, 8, 11)
+anaDef( 9, 9, 12)
+anaDef( 10, 10, 13)
+anaDef( 11, 12, 9)
+#endif	/* anaDef */
+
+/***********************************************************
+ * the following ArduinoDefs_* defines are optional
+ * if defined these can lead to faster/smaller code
+ ***********************************************************/
+#if defined( ArduinoDefs_Digital )
+#endif	/* ArduinoDefs_Digital */
+
+#if defined( ArduinoDefs_Analog )
+/* map to digital pins and adc channels via tables */
+#endif
+
+#if defined( ArduinoDefs_PWM )
+#define digitalPinHasPWM(p)         ((p) == 3 || (p) == 5 || (p) == 6 || (p) == 9 || (p) == 10 || (p) == 11 || (p) == 13)
+#endif	/* ArduinoDefs_PWM */
+
+#if defined( ArduinoDefs_PCINT )
+#define digitalPinToPCICR(p)    ((((p) >= 8 && (p) <= 11) || ((p) >= 14 && (p) <= 17) || ((p) >= A8 && (p) <= A10)) ? (&PCICR) : ((uint8_t *)0))
+#define digitalPinToPCICRbit(p) 0
+#define digitalPinToPCMSK(p)    ((((p) >= 8 && (p) <= 11) || ((p) >= 14 && (p) <= 17) || ((p) >= A8 && (p) <= A10)) ? (&PCMSK0) : ((uint8_t *)0))
+#define digitalPinToPCMSKbit(p) ( ((p) >= 8 && (p) <= 11) ? (p) - 4 : ((p) == 14 ? 3 : ((p) == 15 ? 1 : ((p) == 16 ? 2 : ((p) == 17 ? 0 : (p - A8 + 4))))))
+#define digitalPinToInterrupt(p) ((p) == 0 ? 2 : ((p) == 1 ? 3 : ((p) == 2 ? 1 : ((p) == 3 ? 0 : ((p) == 7 ? 4 : NOT_AN_INTERRUPT)))))
+#endif	/* ArduinoDefs_PCINT */
+
+#if defined( ArduinoDefs_USB )
+#define ARDUINO_MODEL_USB_PID	0x0034
+#define TX_RX_LED_INIT	DDRD |= (1<<5), DDRB |= (1<<0)
+#define TXLED0			PORTD |= (1<<5)
+#define TXLED1			PORTD &= ~(1<<5)
+#define RXLED0			PORTB |= (1<<0)
+#define RXLED1			PORTB &= ~(1<<0)
+#endif	/* ArduinoDefs_USB */
+
+#if defined( ArduinoDefs_Serial )
+// These serial port names are intended to allow libraries and architecture-neutral
+// sketches to automatically default to the correct port name for a particular type
+// of use.  For example, a GPS module would normally connect to SERIAL_PORT_HARDWARE_OPEN,
+// the first hardware serial port whose RX/TX pins are not dedicated to another use.
+//
+// SERIAL_PORT_MONITOR        Port which normally prints to the Arduino Serial Monitor
+//
+// SERIAL_PORT_USBVIRTUAL     Port which is USB virtual serial
+//
+// SERIAL_PORT_LINUXBRIDGE    Port which connects to a Linux system via Bridge library
+//
+// SERIAL_PORT_HARDWARE       Hardware serial port, physical RX & TX pins.
+//
+// SERIAL_PORT_HARDWARE_OPEN  Hardware serial ports which are open for use.  Their RX & TX
+//                            pins are NOT connected to anything by default.
+#define SERIAL_PORT_MONITOR        Serial
+#define SERIAL_PORT_USBVIRTUAL     Serial
+#define SERIAL_PORT_HARDWARE       Serial1
+#define SERIAL_PORT_HARDWARE_OPEN  Serial1
+#endif	/* ArduinoDefs_Serial */
+
+
+#ifdef defConstant
+/***********************************************************
+ * define constants for special pins
+ ***********************************************************/
+#ifndef defClass
+#define defClass(C,N) C##_##N
+#endif 
+
+#if defined( All_Constants ) || defined( Arduino_Constants )
+defConstant(defClass(ARDUINO,LED_BUILTIN), pins_LED)
+#endif
+
+defConstant(defClass(_internal_,_avoid_empty_enum_),0)
+#endif	/* defConstant */
+/***********************************************************
+ * clean up Xmacros
+ ***********************************************************/
+#undef pinDef
+#undef defConstant
+#undef defClass
+#undef All_Constants
