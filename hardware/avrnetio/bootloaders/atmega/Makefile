@@ -20,6 +20,9 @@
 # etc...
 MAKEFILES = $(lastword $(MAKEFILE_LIST))
 
+# avrdude:
+AVRPRG=avrdude
+
 # program name should not be changed...
 #PROGRAM    = ATmegaBOOT_168
 #PROGRAM	   = optiboot
@@ -47,14 +50,14 @@ LOCK = 3f
 ULOCK = 0f
 
 # some ATtiny cannot read lock bits
-ISPUNLOCK = avrdude -c $(ISPTOOL) -p $(MCU_TARGET) -P $(ISPPORT) $(ISPSPEED) \
+ISPUNLOCK = $(AVRPRG) -c $(ISPTOOL) -p $(MCU_TARGET) -P $(ISPPORT) $(ISPSPEED) \
 -e -u -V -U lock:w:0x$(strip $(ULOCK)):m 
-ISPFUSES  = avrdude -c $(ISPTOOL) -p $(MCU_TARGET) -P $(ISPPORT) $(ISPSPEED) \
+ISPFUSES  = $(AVRPRG) -c $(ISPTOOL) -p $(MCU_TARGET) -P $(ISPPORT) $(ISPSPEED) \
 $(if $(EFUSE), -U efuse:w:0x$(strip $(EFUSE)):m) \
 -U hfuse:w:0x$(strip $(HFUSE)):m -U lfuse:w:0x$(strip $(LFUSE)):m
-ISPFLASH  = avrdude -c $(ISPTOOL) -p $(MCU_TARGET) -P $(ISPPORT) $(ISPSPEED) \
+ISPFLASH  = $(AVRPRG) -c $(ISPTOOL) -p $(MCU_TARGET) -P $(ISPPORT) $(ISPSPEED) \
 -D -U flash:w:$(PROGRAM)_$(TARGET).hex
-ISPLOCK   = avrdude -c $(ISPTOOL) -p $(MCU_TARGET) -P $(ISPPORT) $(ISPSPEED) \
+ISPLOCK   = $(AVRPRG) -c $(ISPTOOL) -p $(MCU_TARGET) -P $(ISPPORT) $(ISPSPEED) \
  -V -U lock:w:0x$(strip $(LOCK)):m
 
 STK500 = "C:\Program Files\Atmel\AVR Tools\STK500\Stk500.exe"
@@ -82,10 +85,17 @@ OBJDUMP    = $(ARDUINO_DIR)\hardware\tools\avr\bin\avr-objdump
 AWK        = $(ARDUINO_DIR)\hardware\tools\avr\utils\bin\gawk
 else
 # good old un*x system :-)
-CC         = avr-gcc
-OBJSIZE    = avr-size
-OBJCOPY    = avr-objcopy
-OBJDUMP    = avr-objdump
+ifneq ($(TOOLROOT),)
+GCCROOT = $(TOOLROOT)/avr/bin/
+AVRDUDE_CONF = -C$(TOOLROOT)/avr/etc/avrdude.conf
+else
+GCCROOT = ""
+AVRDUDE_CONF = "" 
+endif
+CC         = $(GCCROOT)avr-gcc
+OBJSIZE    = $(GCCROOT)avr-size
+OBJCOPY    = $(GCCROOT)avr-objcopy
+OBJDUMP    = $(GCCROOT)avr-objdump
 AWK        = awk
 endif
 
@@ -132,8 +142,10 @@ ARDUINO = $(ARDUINOx8) $(ARDUINOx8RC) $(ARDUINO_MEGA)
 TINY = tiny25 tiny45 tiny44
 # all tinys
 ATTINY = luminet $(TINY)
+# Carrera Digital
+SCAR = bbox132
 # all boards
-ALL = $(ANIO) $(ARDUINO) $(ATTINY)  
+ALL = $(ANIO) $(ARDUINO) $(ATTINY) $(SCAR)  
 
 IHEX_AWK = 'BEGIN {c=0;s=0;v=""}; {c+=1;s+=$$0;v=sprintf("%s%02X",v,$$0)}; END {s+=c+A%256+int(A/256)+T; printf (":%02X%04X%02X%s%02X\n",c,A,T,v,(256-(s%256))) };'
 RJMP_AWK = '{x=strtonum($$0)/2-1+0xC000;printf("%i %i",int(x/256),x%256)}'
@@ -151,12 +163,18 @@ all: $(ALL)
 #	for i in $(ALL) ; do $(MAKE) $$i ; done
 
 ############################################################
+# defaults
+############################################################
+$(all) $(all:%=%_isp): core=avrnetio 
+
+############################################################
 # Arduino w/ ATmega*8
 ############################################################
 $(ARDUINOx8) $(ARDUINOx8:%=%_isp): AVR_FREQ = 16000000L
 $(ARDUINOx8) $(ARDUINOx8:%=%_isp): CFLAGS +=  '-DLED_B=5' '-DLED_P=B' '-DNUM_LED_FLASHES=1'
 $(ARDUINOx8) $(ARDUINOx8:%=%_isp): BOARD = ARDUINO
 $(ARDUINOx8) $(ARDUINOx8:%=%_isp): variant = standard
+$(ARDUINOx8) $(ARDUINOx8:%=%_isp): BRD=anioX8
 
 # Arduino w/ ATmega168@16MHz auto-reset 
 diecimila diecimila_isp: TARGET = diecimila
@@ -308,6 +326,7 @@ $(ANIO) $(ANIO:%=%_isp): CFLAGS += '-DBL_B=1' '-DBL_P=B' # BL JMP
 $(ANIO) $(ANIO:%=%_isp): LDFLAGS +=
 $(ANIO) $(ANIO:%=%_isp): BOARD = AVR_NET_IO
 $(ANIO) $(ANIO:%=%_isp): variant = avrnetio
+$(ANIO) $(ANIO:%=%_isp): BRD=anio
 
 ### AVR-Net-IO w/ ATmega32@16MHz auto-reset
 anio32 anio32_isp: TARGET = anio32
@@ -348,6 +367,8 @@ anio164p anio164p_isp: HFUSE = D8
 endif
 anio164p anio164p_isp: LFUSE = FF
 anio164p anio164p_isp: EFUSE = FD # 05
+# this seems to be missing in header files
+anio164p anio164p_isp: CFLAGS += -'DSIGNATURE_0=0x1e' -'DSIGNATURE_1=0x94' -'DSIGNATURE_2=0x0a'
 
 ### AVR-Net-IO w/ ATmega324p@16MHz auto-reset
 anio324p anio324p_isp: TARGET = anio324p
@@ -361,6 +382,8 @@ anio324p anio324p_isp: HFUSE = DA
 endif
 anio324p anio324p_isp: LFUSE = FF
 anio324p anio324p_isp: EFUSE = FD # 05
+# this seems to be missing in header files
+anio324p anio324p_isp: CFLAGS += -'DSIGNATURE_0=0x1e' -'DSIGNATURE_1=0x95' -'DSIGNATURE_2=0x08'
 
 ### AVR-Net-IO w/ ATmega644@16MHz auto-reset
 anio644 anio644_isp: TARGET = anio644
@@ -477,9 +500,36 @@ tiny44 tiny44_isp: LFUSE = 62 # 1MHz internal oscillator, slowly rising power
 tiny44 tiny44_isp: EFUSE = FE # Self-programming enable
 
 ############################################################
+# Carrera Black Box D132 (30344) w/ ATmega16
+############################################################
+bbox132 bbox132_isp: AVR_FREQ = 8000000L
+bbox132 bbox132_isp: BAUD = $(if $(OPTI_BAUD),$(OPTI_BAUD),57600)
+bbox132 bbox132_isp: CFLAGS += '-DMAX_TIME_COUNT=F_CPU>>4' '-DNUM_LED_FLASHES=1'
+bbox132 bbox132_isp: CFLAGS += '-DTIMEOUT_MS=500' 
+bbox132 bbox132_isp: CFLAGS += '-DLED_B=3' '-DLED_P=C' # LED5 (=PC3)
+bbox132 bbox132_isp: CFLAGS += '-DBL_B=1' '-DBL_P=B' # Start (=PB1)
+bbox132 bbox132_isp: LDFLAGS +=
+bbox132 bbox132_isp: BOARD = BLACK_BOX_D132
+bbox132 bbox132_isp: variant = bbox132
+bbox132 bbox132_isp: BRD=bbox132
+
+bbox132 bbox132_isp: TARGET = bbox132
+bbox132 bbox132_isp: MCU_TARGET = atmega16
+ifeq ($(PROGRAM),optiboot)
+bbox132 bbox132_isp: LDSECTION  = 0x3e00
+bbox132 bbox132_isp: HFUSE = CC
+else
+bbox132 bbox132_isp: LDSECTION  = 0x3800
+bbox132 bbox132_isp: HFUSE = C8	# same as Carrera = 2kB Bootloader
+endif
+bbox132 bbox132_isp: LFUSE = 2F
+
+
+
+############################################################
 # machine room
 ############################################################
-$(ALL):%:$(PROGRAM)_%.hex $(PROGRAM)_%.boards.txt
+$(ALL):%:$(PROGRAM)_%.hex $(PROGRAM)_%.boards.txt $(PROGRAM)_%.brd.txt $(PROGRAM)_%.cpu.txt
 $(ALL:%=%_isp):%_isp: % isp
 
 isp: $(TARGET)
@@ -520,13 +570,20 @@ reverse = $(if $(1),$(call reverse,$(wordlist 2,$(words $(1)),$(1)))) $(firstwor
 ldir = $(subst /, ,$(PWD))
 rdir = $(call reverse,$(ldir))
 bldr = $(word 1,$(rdir))
-core = $(word 3,$(rdir))
+mntr = $(word 3,$(rdir))
+ifeq ($(mntr),avr)
+mntr = $(word 4,$(rdir))
+endif
+ifeq ($(core),)
+core = $(mntr)
+endif
 
+### arduino 1.0.x ##########################################
 %.boards.txt: %.hex
 	@echo "##################################################" > $@
 	@echo "# $(TARGET): $(core) /w $(MCU_TARGET) ($(SRC))" >> $@
 	@echo "##################################################" >> $@
-	@echo "$(TARGET).name=$(core) w/ $(MCU_TARGET) ($(SRC))" >> $@
+	@echo "$(TARGET).name=$(BOARD) w/ $(MCU_TARGET) ($(SRC))" >> $@
 	@echo "$(TARGET).build.mcu=$(MCU_TARGET)" >> $@
 	@echo "$(TARGET).build.f_cpu=$(AVR_FREQ)" >> $@
 	@echo "$(TARGET).build.core=$(core)" >> $@
@@ -547,6 +604,65 @@ core = $(word 3,$(rdir))
 	@echo "# $(TARGET).platform=avr" >> $@
 	@echo "# $(TARGET).board=$(BOARD)" >> $@
 	@echo "##################################################" >> $@
+
+### arduino 1.5.x ##########################################
+%.brd.txt: %.hex
+	@echo "##################################################" > $@
+	@echo "# $(BRD): $(BOARD) - $(core) " >> $@
+	@echo "##################################################" >> $@
+	@echo "$(BRD).name=$(BOARD) ($(core))" >> $@
+
+	@echo "$(BRD).upload.tool=$(AVRPRG)" >> $@
+	@echo "$(BRD).upload.speed=$(BAUD)" >> $@
+	@echo "$(BRD).upload.protocol=$(PROTOCOL)" >> $@
+
+	@echo "$(BRD).bootloader.tool=$(AVRPRG)" >> $@
+	@echo "$(BRD).bootloader.low_fuses=0x$(LFUSE)" >> $@
+	@echo "$(BRD).bootloader.high_fuses=0x$(HFUSE)" >> $@
+	@echo $(if $(EFUSE),,'#') "$(BRD).bootloader.extended_fuses=0x$(EFUSE)" >> $@
+	@echo "$(BRD).bootloader.unlock_bits=0x$(ULOCK)" >> $@
+	@echo "$(BRD).bootloader.lock_bits=0x$(LOCK)" >> $@
+
+	@echo "$(BRD).build.core=$(core)" >> $@	
+	@echo "$(BRD).build.board=$(BOARD)" >> $@
+	@echo "$(BRD).build.f_cpu=$(AVR_FREQ)" >> $@
+	@echo $(if $(variant),,'#') "$(BRD).build.variant=$(variant)" >> $@
+	@echo "# CPU stuff ---------------- (remove for cpu menu)" >> $@
+	@echo "$(BRD).build.mcu=$(MCU_TARGET)" >> $@
+	@echo -n "$(BRD).upload.maximum_size=" >> $@
+	@$(AWK) 'BEGIN {print $(LDSECTION);}' >> $@
+	# DEBUG: how to get ram size from cpu type? I use 1/16 of flash
+	@echo -n "$(BRD).upload.maximum_data_size=" >> $@
+	@$(AWK) 'BEGIN {print lshift(1,int(log($(LDSECTION))/log(2)+.5)-4);}' >> $@
+	@echo "$(BRD).bootloader.file=$(bldr)/$<" >> $@
+	@$(OBJSIZE) $(<:%.hex=%.elf) | $(AWK) '{print "# " $$0;}' >> $@
+	@echo "#.BootLoader ($(SRC)) compile options:" >> $@
+	@echo "#.CFLAGS $(CFLAGS)" >> $@
+	@echo "#.LDFLAGS $(LDFLAGS)" >> $@
+	@echo "##################################################" >> $@
+
+%.cpu.txt: %.hex
+	@echo "#-------------------------------------------------" > $@
+	@echo "# $(TARGET): $(core) /w $(MCU_TARGET) ($(SRC))" >> $@
+	@echo "#-------------------------------------------------" >> $@
+	@echo "$(BRD).menu.cpu.$(TARGET)=$(MCU_TARGET) ($(SRC))" >> $@
+
+	@echo "$(BRD).menu.cpu.$(TARGET).upload.protocol=$(PROTOCOL)" >> $@
+	@echo -n "$(BRD).menu.cpu.$(TARGET).upload.maximum_size=" >> $@
+	@$(AWK) 'BEGIN {print $(LDSECTION);}' >> $@
+	# DEBUG: how to get ram size from cpu type? I use 1/16 of flash
+	@echo -n "$(BRD).menu.cpu.$(TARGET).upload.maximum_data_size=" >> $@
+	@$(AWK) 'BEGIN {print lshift(1,int(log($(LDSECTION))/log(2)+.5)-4);}' >> $@
+	@echo "$(BRD).menu.cpu.$(TARGET).upload.speed=$(BAUD)" >> $@
+
+	@echo "$(BRD).menu.cpu.$(TARGET).bootloader.file=$(bldr)/$<" >> $@
+	@$(OBJSIZE) $(<:%.hex=%.elf) | $(AWK) '{print "# " $$0;}' >> $@
+	@echo "$(BRD).menu.cpu.$(TARGET).bootloader.low_fuses=0x$(LFUSE)" >> $@
+	@echo "$(BRD).menu.cpu.$(TARGET).bootloader.high_fuses=0x$(HFUSE)" >> $@
+	@echo $(if $(EFUSE),,'#') "$(BRD).menu.cpu.$(TARGET).bootloader.extended_fuses=0x$(EFUSE)" >> $@
+	@echo "$(BRD).menu.cpu.$(TARGET).build.mcu=$(MCU_TARGET)" >> $@
+	@echo "$(BRD).menu.cpu.$(TARGET).build.f_cpu=$(AVR_FREQ)" >> $@
+	@echo "#-------------------------------------------------" >> $@
 
 BOARDS = $(wildcard *.boards.txt)
 boards.txt: $(BOARDS)

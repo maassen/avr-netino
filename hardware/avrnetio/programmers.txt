@@ -8,3 +8,7 @@ dragonisp.protocol=dragon_isp
 # dragonpp.communication=usb
 # dragonpp.protocol=dragon_pp
 
+dragonhvsp.name=Dragon HVSP
+dragonhvsp.communication=usb
+dragonhvsp.protocol=dragon_hvsp
+

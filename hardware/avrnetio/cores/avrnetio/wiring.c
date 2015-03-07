@@ -89,6 +89,10 @@ ISR(TIMER0_OVF_vect)
 	timer0_overflow_count++;
 }
 
+// the timing fuctions are decleared weak to allow the user 
+// to use a own clock scheme
+
+unsigned long millis(void) __attribute__((weak));
 unsigned long millis()
 {
 	unsigned long m;
@@ -103,6 +107,7 @@ unsigned long millis()
 	return m;
 }
 
+unsigned long micros(void) __attribute__((weak));
 unsigned long micros() {
 	unsigned long m;
 	uint8_t oldSREG = SREG, t;
@@ -128,14 +133,28 @@ unsigned long micros() {
 
 	SREG = oldSREG;
 	
+#if TIMER0_CLK_SRC == 1
+	return ((m << 8) + t) * (1 / clockCyclesPerMicrosecond());
+#elif TIMER0_CLK_SRC == 2
+	return ((m << 8) + t) * (8 / clockCyclesPerMicrosecond());
+#elif TIMER0_CLK_SRC == 3
 	return ((m << 8) + t) * (64 / clockCyclesPerMicrosecond());
+#elif TIMER0_CLK_SRC == 4
+	return ((m << 8) + t) * (256 / clockCyclesPerMicrosecond());
+#elif TIMER0_CLK_SRC == 5
+	return ((m << 8) + t) * (1024 / clockCyclesPerMicrosecond());
+#else 
+#error "TIMER0_CLK_SRC has illigal value"
+#endif
 }
 
+void delay(unsigned long) __attribute__((weak));
 void delay(unsigned long ms)
 {
 	uint16_t start = (uint16_t)micros();
 
 	while (ms > 0) {
+		yield();
 		if (((uint16_t)micros() - start) >= 1000) {
 			ms--;
 			start += 1000;
@@ -144,6 +163,7 @@ void delay(unsigned long ms)
 }
 
 /* Delay for the given number of microseconds.  Assumes a 8 or 16 MHz clock. */
+void delayMicroseconds(unsigned int us) __attribute__((weak));
 void delayMicroseconds(unsigned int us)
 {
 	// calling avrlib's delay_us() function with low values (e.g. 1 or
@@ -180,6 +200,21 @@ void delayMicroseconds(unsigned int us)
 	// per iteration, so execute it four times for each microsecond of
 	// delay requested.
 	us <<= 2;
+
+	// account for the time taken in the preceeding commands.
+	us -= 2;
+#elif F_CPU >= 12000000L
+	// for the 12 MHz clock on spare boards
+
+	// for a one-microsecond delay, simply return.  the overhead
+	// of the function call yields a delay 
+	if (--us == 0)
+		return;
+
+	// the following loop takes a third of a microsecond (4 cycles)
+	// per iteration, so execute it three times for each microsecond of
+	// delay requested.
+	us = (us << 1) + us; // x3
 
 	// account for the time taken in the preceeding commands.
 	us -= 2;
@@ -354,3 +389,18 @@ void init()
 	UCSR0B = 0;
 #endif
 }
+
+/**
+ * Empty yield() hook.
+ *
+ * This function is intended to be used by library writers to build
+ * libraries or sketches that supports cooperative threads.
+ *
+ * Its defined as a weak symbol and it can be redefined to implement a
+ * real cooperative scheduler.
+ */
+static void __empty() {
+	// Empty
+}
+void yield(void) __attribute__ ((weak, alias("__empty")));
+

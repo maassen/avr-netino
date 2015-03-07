@@ -28,11 +28,11 @@
 #endif
 // flags for backlight control
 #define LCD_BACKLIGHT 0x00
-#define LCD_NOBACKLIGHT 0x80	// I2C_LCD_BL
+#define LCD_NOBACKLIGHT  I2C_LCD_BL
 
-#define En	B01000000 	// I2C_LCD_E  // Enable bit
-#define Rw	B00100000	// I2C_LCD_RW  // Read/Write bit
-#define Rs	B00010000 	// I2C_LCD_RS  // Register select bit
+#define En	I2C_LCD_E  // Enable bit
+#define Rw	I2C_LCD_RW  // Read/Write bit
+#define Rs	I2C_LCD_RS  // Register select bit
 
 #else
 // flags for backlight control

@@ -90,10 +90,10 @@
 
 #elif defined(__AVR_ATmega32U4__) //Arduino Leonardo 
 
-#define RFM_IRQ     0	    // PD0, INT0, Digital3 
+#define RFM_IRQ     3       // PD0, INT0, Digital3 
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
-#define SS_BIT      6	    // Dig10, PB6
+#define SS_BIT      6       // Dig10, PB6
 
 #define SPI_SS      17    // PB0, pin 8, Digital17
 #define SPI_MISO    14    // PB3, pin 11, Digital14
@@ -103,7 +103,8 @@
 #else
 
 // ATmega168, ATmega328, etc.
-#define RFM_IRQ     2
+#define RFM_IRQ     2     // 2=JeeNode, 18=JeeNode pin change
+//#define RFM_IRQ       1     // PCINT1=JeeNode Block pin change
 #define SS_DDR      DDRB
 #define SS_PORT     PORTB
 #define SS_BIT      2     // for PORTB: 2 = d.10, 1 = d.9, 0 = d.8
@@ -116,6 +117,7 @@
 #endif 
 
 // RF12 command codes
+#define RF_RECV_CONTROL 0x94A0
 #define RF_RECEIVER_ON  0x82DD
 #define RF_XMITTER_ON   0x823D
 #define RF_IDLE_MODE    0x820D
@@ -131,7 +133,6 @@
 
 // bits in the node id configuration byte
 #define NODE_BAND       0xC0        // frequency band
-#define NODE_ACKANY     0x20        // ack on broadcast packets if set
 #define NODE_ID         0x1F        // id of this node, as A..Z or 1..31
 
 // transceiver states, these determine what to do with each interrupt
@@ -145,6 +146,7 @@ static uint8_t cs_pin = SS_BIT;     // chip select pin
 
 static uint8_t nodeid;              // address of this node
 static uint8_t group;               // network group
+static uint16_t frequency;          // Frequency within selected band
 static volatile uint8_t rxfill;     // number of data bytes in rf12_buf
 static volatile int8_t rxstate;     // current transceiver state
 
@@ -160,6 +162,7 @@ static long ezNextSend[2];          // when was last retry [0] or data [1] sent
 volatile uint16_t rf12_crc;         // running crc value
 volatile uint8_t rf12_buf[RF_MAX];  // recv/xmit buf, including hdr & crc bytes
 long rf12_seq;                      // seq number of encrypted packet (or -1)
+static uint8_t rf12_fixed_pkt_len;  // fixed packet length reception
 
 static uint32_t seqNum;             // encrypted send sequence number
 static uint32_t cryptKey[4];        // encryption key to use
@@ -179,17 +182,14 @@ void rf12_set_cs(uint8_t pin)
     b++;
   }
 #elif defined(__AVR_ATmega32U4__)     //Arduino Leonardo 
-  if (pin==10) cs_pin=6; 	    // Dig10, PB6     
-  if (pin==9)  cs_pin=5; 	    // Dig9,  PB5	
-  if (pin==8)  cs_pin=4; 	    // Dig8,  PB4            
+  cs_pin = pin - 4;             // Dig10 (PB6), Dig9 (PB5), or Dig8 (PB4)
 #elif defined(__AVR_ATmega168__) || defined(__AVR_ATmega328__) || defined (__AVR_ATmega328P__) // ATmega168, ATmega328
-  if (pin==10) cs_pin = 2; 	    // Dig10, PB2
-  if (pin==9) cs_pin = 1;  	    // Dig9,  PB1
-  if (pin==8) cs_pin = 0;  	    // Dig8,  PB0
+  cs_pin = pin - 8;             // Dig10 (PB2), Dig9 (PB1), or Dig8 (PB0)
 #endif
 }
 
-
+/// @details
+/// Initialise the SPI port for use by the RF12 driver.
 void rf12_spiInit () {
 #ifdef SS_BMSK
     SS_PORT |= SS_BMSK;
@@ -307,11 +307,11 @@ uint16_t rf12_control(uint16_t cmd) {
 #ifdef EIMSK
 #if PINCHG_IRQ
     #if RFM_IRQ < 8
-        bitClear(PCICR, PCIE2);
-    #elif RFM_IRQ < 14
         bitClear(PCICR, PCIE0);
-    #else
+    #elif RFM_IRQ < 16
         bitClear(PCICR, PCIE1);
+    #else
+        bitClear(PCICR, PCIE2);
     #endif
 #else
     bitClear(EIMSK, INT0);
@@ -319,11 +319,11 @@ uint16_t rf12_control(uint16_t cmd) {
    uint16_t r = rf12_xferSlow(cmd);
 #if PINCHG_IRQ
     #if RFM_IRQ < 8
-        bitSet(PCICR, PCIE2);
-    #elif RFM_IRQ < 14
         bitSet(PCICR, PCIE0);
-    #else
+    #elif RFM_IRQ < 16
         bitSet(PCICR, PCIE1);
+    #else
+        bitSet(PCICR, PCIE2);
     #endif
 #else
     bitSet(EIMSK, INT0);
@@ -337,11 +337,11 @@ uint16_t rf12_control(uint16_t cmd) {
     return r;
 }
 
-static void rf12_interrupt() {
+static void rf12_interrupt () {
     // a transfer of 2x 16 bits @ 2 MHz over SPI takes 2x 8 us inside this ISR
     // correction: now takes 2 + 8 µs, since sending can be done at 8 MHz
-    rf12_xfer(0x0000);
-    
+    rf12_xfer(0x0000); 
+
     if (rxstate == TXRECV) {
         uint8_t in = rf12_xferSlow(RF_RX_FIFO_READ);
 
@@ -376,38 +376,42 @@ static void rf12_interrupt() {
 
 #if PINCHG_IRQ
     #if RFM_IRQ < 8
-        ISR(PCINT2_vect) {
-            while (!bitRead(PIND, RFM_IRQ))
+        ISR(PCINT0_vect) {
+            while (!bitRead(PINB, RFM_IRQ))
                 rf12_interrupt();
         }
-    #elif RFM_IRQ < 14
-        ISR(PCINT0_vect) { 
-            while (!bitRead(PINB, RFM_IRQ - 8))
+    #elif RFM_IRQ < 16
+        ISR(PCINT1_vect) { 
+            while (!bitRead(PINC, RFM_IRQ - 8))
                 rf12_interrupt();
         }
     #else
-        ISR(PCINT1_vect) {
-            while (!bitRead(PINC, RFM_IRQ - 14))
+        ISR(PCINT2_vect) {
+            while (!bitRead(PIND, RFM_IRQ - 16))
                 rf12_interrupt();
         }
     #endif
 #endif
 
 static void rf12_recvStart () {
-    rxfill = rf12_len = 0;
+    if (rf12_fixed_pkt_len) {
+        rf12_len = rf12_fixed_pkt_len;
+        rf12_grp = rf12_hdr = 0;
+        rxfill = 3;
+    } else
+        rxfill = rf12_len = 0;
     rf12_crc = ~0;
 #if RF12_VERSION >= 2
     if (group != 0)
         rf12_crc = _crc16_update(~0, group);
 #endif
     rxstate = TXRECV;    
+
     rf12_xfer(RF_RECEIVER_ON);
 }
 
 #include <RF12.h> 
 #include <Ports.h> // needed to avoid a linker error :(
-
-byte rf12_recvDone();
 
 /// @details
 /// The timing of this function is relatively coarse, because SPI transfers are
@@ -528,12 +532,6 @@ void rf12_sendStart (uint8_t hdr, const void* ptr, uint8_t len) {
     rf12_sendStart(hdr);
 }
 
-/// @deprecated Use the 3-arg version, followed by a call to rf12_sendWait.
-void rf12_sendStart (uint8_t hdr, const void* ptr, uint8_t len, uint8_t sync) {
-    rf12_sendStart(hdr, ptr, len);
-    rf12_sendWait(sync);
-}
-
 /// @details
 /// Wait until transmission is possible, then start it as soon as possible.
 /// @note This uses a (brief) busy loop and will discard any incoming packets.
@@ -587,12 +585,14 @@ void rf12_sendWait (uint8_t mode) {
 /// @param band This determines in which frequency range the wireless module
 ///             will operate. The following pre-defined constants are available:
 ///             RF12_433MHZ, RF12_868MHZ, RF12_915MHZ. You should use the one
-///             matching the module you have.
+///             matching the module you have, to get a useful TX/RX range.
 /// @param g Net groups are used to separate nodes: only nodes in the same net
 ///          group can communicate with each other. Valid values are 1 to 212. 
 ///          This parameter is optional, it defaults to 212 (0xD4) when omitted.
 ///          This is the only allowed value for RFM12 modules, only RFM12B
 ///          modules support other group values.
+/// @param f Frequency correction to apply. Defaults to 1600, per RF12 docs.
+///          This parameter is optional, and was added in February 2014.
 /// @returns the nodeId, to be compatible with rf12_config().
 ///
 /// Programming Tips
@@ -603,14 +603,14 @@ void rf12_sendWait (uint8_t mode) {
 /// rf12_initialize. The choice whether to use rf12_initialize() or
 /// rf12_config() at the top of every sketch is one of personal preference.
 /// To set EEPROM settings for use with rf12_config() use the RF12demo sketch.
-uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g) {
+uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g, uint16_t f) {
     nodeid = id;
     group = g;
-    
+    frequency = f;
+// caller should validate!    if (frequency < 96) frequency = 1600;
+        
     rf12_spiInit();
-
-    rf12_xfer(0x0000); // intitial SPI transfer added to avoid power-up problem
-
+    rf12_xfer(0x0000); // initial SPI transfer added to avoid power-up problem
     rf12_xfer(RF_SLEEP_MODE); // DC (disable clk pin), enable lbd
     
     // wait until RFM12B is out of power-up reset, this takes several *seconds*
@@ -619,7 +619,7 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g) {
         rf12_xfer(0x0000);
         
     rf12_xfer(0x80C7 | (band << 4)); // EL (ena TX), EF (ena RX FIFO), 12.0pF 
-    rf12_xfer(0xA640); // 868MHz 
+    rf12_xfer(0xA000 + frequency); // 96-3960 freq range of values within band 
     rf12_xfer(0xC606); // approx 49.2 Kbps, i.e. 10000/29/(1+6) Kbps
     rf12_xfer(0x94A2); // VDI,FAST,134kHz,0dBm,-91dBm 
     rf12_xfer(0xC2AC); // AL,!ml,DIG,DQD4 
@@ -641,28 +641,28 @@ uint8_t rf12_initialize (uint8_t id, uint8_t band, uint8_t g) {
 #if PINCHG_IRQ
     #if RFM_IRQ < 8
         if ((nodeid & NODE_ID) != 0) {
-            bitClear(DDRD, RFM_IRQ);      // input
-            bitSet(PORTD, RFM_IRQ);       // pull-up
-            bitSet(PCMSK2, RFM_IRQ);      // pin-change
-            bitSet(PCICR, PCIE2);         // enable
-        } else
-            bitClear(PCMSK2, RFM_IRQ);
-    #elif RFM_IRQ < 14
-        if ((nodeid & NODE_ID) != 0) {
-            bitClear(DDRB, RFM_IRQ - 8);  // input
-            bitSet(PORTB, RFM_IRQ - 8);   // pull-up
-            bitSet(PCMSK0, RFM_IRQ - 8);  // pin-change
+            bitClear(DDRB, RFM_IRQ);      // input
+            bitSet(PORTB, RFM_IRQ);       // pull-up
+            bitSet(PCMSK0, RFM_IRQ);      // pin-change
             bitSet(PCICR, PCIE0);         // enable
         } else
-            bitClear(PCMSK0, RFM_IRQ - 8);
-    #else
+            bitClear(PCMSK0, RFM_IRQ);
+    #elif RFM_IRQ < 15
         if ((nodeid & NODE_ID) != 0) {
-            bitClear(DDRC, RFM_IRQ - 14); // input
-            bitSet(PORTC, RFM_IRQ - 14);  // pull-up
-            bitSet(PCMSK1, RFM_IRQ - 14); // pin-change
+            bitClear(DDRC, RFM_IRQ - 8);  // input
+            bitSet(PORTC, RFM_IRQ - 8);   // pull-up
+            bitSet(PCMSK1, RFM_IRQ - 8);  // pin-change
             bitSet(PCICR, PCIE1);         // enable
         } else
-            bitClear(PCMSK1, RFM_IRQ - 14);
+            bitClear(PCMSK1, RFM_IRQ - 8);
+    #else
+        if ((nodeid & NODE_ID) != 0) {
+            bitClear(DDRD, RFM_IRQ - 16); // input
+            bitSet(PORTD, RFM_IRQ - 16);  // pull-up
+            bitSet(PCMSK2, RFM_IRQ - 16); // pin-change
+            bitSet(PCICR, PCIE2);         // enable
+        } else
+            bitClear(PCMSK2, RFM_IRQ - 16);
     #endif
 #else
     if ((nodeid & NODE_ID) != 0)
@@ -699,32 +699,74 @@ void rf12_onOff (uint8_t value) {
 /// rf12_initialize() will not be called.
 ///
 /// As side effect, rf12_config() also writes the current configuration to the
-/// serial port, ending with a newline.
+/// serial port, ending with a newline. Use rf12_configSilent() to avoid this.
 /// @returns the node ID obtained from EEPROM, or 0 if there was none.
-uint8_t rf12_config (uint8_t show) {
+uint8_t rf12_configSilent () {
     uint16_t crc = ~0;
-    for (uint8_t i = 0; i < RF12_EEPROM_SIZE; ++i)
-        crc = _crc16_update(crc, eeprom_read_byte(RF12_EEPROM_ADDR + i));
-    if (crc != 0)
+    for (uint8_t i = 0; i < RF12_EEPROM_SIZE; ++i) {
+        byte e = eeprom_read_byte(RF12_EEPROM_ADDR + i);
+        crc = _crc16_update(crc, e);
+    }
+    if (crc || eeprom_read_byte(RF12_EEPROM_ADDR + 2) != RF12_EEPROM_VERSION)
         return 0;
         
-    uint8_t nodeId = 0, group = 0;
-    for (uint8_t i = 0; i < RF12_EEPROM_SIZE - 2; ++i) {
-        uint8_t b = eeprom_read_byte(RF12_EEPROM_ADDR + i);
-        if (i == 0)
-            nodeId = b;
-        else if (i == 1)
-            group = b;
-        else if (b == 0)
-            break;
-        else if (show)
-            Serial.print((char) b);
-    }
-    if (show)
-        Serial.println();
+    uint8_t nodeId = 0, group = 0;   
+    uint16_t frequency = 0;  
+     
+    nodeId = eeprom_read_byte(RF12_EEPROM_ADDR + 0);
+    group  = eeprom_read_byte(RF12_EEPROM_ADDR + 1);
+    frequency = eeprom_read_word((uint16_t*) (RF12_EEPROM_ADDR + 4));
     
-    rf12_initialize(nodeId, nodeId >> 6, group);
+    rf12_initialize(nodeId, nodeId >> 6, group, frequency);
     return nodeId & RF12_HDR_MASK;
+}
+
+/// @details
+/// This replaces rf12_config(0), to be called after rf12_configSilent(). Can be
+/// used to avoid pulling in the Serial port code in cases where it's not used.
+void rf12_configDump () {
+    uint8_t nodeId = eeprom_read_byte(RF12_EEPROM_ADDR);
+    uint8_t flags = eeprom_read_byte(RF12_EEPROM_ADDR + 3);
+    uint16_t freq = eeprom_read_word((uint16_t*) (RF12_EEPROM_ADDR + 4));
+    
+    // " A i1 g178 @ 868 MHz "
+    Serial.print(' ');
+    Serial.print((char) ('@' + (nodeId & RF12_HDR_MASK)));
+    Serial.print(" i");
+    Serial.print(nodeId & RF12_HDR_MASK);
+    if (flags & 0x04)
+        Serial.print('*');
+    Serial.print(" g");
+    Serial.print(eeprom_read_byte(RF12_EEPROM_ADDR + 1));
+    Serial.print(" @ ");
+    uint8_t band = nodeId >> 6;
+    Serial.print(band == RF12_433MHZ ? 433 :
+                 band == RF12_868MHZ ? 868 :
+                 band == RF12_915MHZ ? 915 : 0);
+    Serial.print(" MHz");
+    if (flags & 0x04) {
+        Serial.print(" c1");
+    }
+    if (freq != 1600) {
+        Serial.print(" o");
+        Serial.print(freq);
+    }
+    if (flags & 0x08) {
+        Serial.print(" q1");
+    }
+    if (flags & 0x03) {
+        Serial.print(" x");
+        Serial.print(flags & 0x03);
+    }
+    Serial.println();
+}
+
+/// @deprecated Please switch over to rf12_configSilent() and rf12_configDump().
+uint8_t rf12_config (uint8_t show) {
+    uint8_t id = rf12_configSilent();
+    if (show)
+        rf12_configDump();
+    return id;
 }
 
 /// @details
@@ -753,7 +795,7 @@ void rf12_sleep (char n) {
 }
 
 /// @details
-/// This checks the status of the RF12 low-battery detector. It wil be 1 when
+/// This checks the status of the RF12 low-battery detector. It will be 1 when
 /// the supply voltage drops below 3.1V, and 0 otherwise. This can be used to
 /// detect an impending power failure, but there are no guarantees that the
 /// power still remaining will be sufficient to send or receive further packets.
@@ -770,7 +812,7 @@ char rf12_lowbat () {
 ///   packets/second).
 /// 
 /// * On the 866 MHz band, the frequency depends on the number of bytes sent:
-///   for 1-byte packets, it will be up to 7 packets/second, for 66-byte bytes of
+///   for 1-byte packets, it'll be up to 7 packets/second, for 66-byte bytes of
 ///   data it will be around 1 packet/second.
 /// 
 /// This function should be called after the RF12 driver has been initialized,
@@ -779,16 +821,16 @@ char rf12_lowbat () {
 ///             to 255). With a 0 argument, packets will be sent as fast as 
 ///             possible: on the 433 and 915 MHz frequency bands, this is fixed 
 ///             at 100 msec (10 packets/second). On 866 MHz, the frequency 
-///             depends on the number of bytes sent: for 1-byte packets, it will 
-///             be up to 7 packets/second, for 66-byte bytes of data it will be 
-///             approx. 1 packet/second.
+///             depends on the number of bytes sent: for 1-byte packets, it 
+///             will be up to 7 packets/second, for 66-byte bytes of data it 
+///             drops to approx. 1 packet/second.
 /// @note To be used in combination with rf12_easyPoll() and rf12_easySend().
 void rf12_easyInit (uint8_t secs) {
     ezInterval = secs;
 }
 
 /// @details
-/// This needs to be called often to keep the easy transmission mechanism going, 
+/// Needs to be called often to keep the easy transmission mechanism going, 
 /// i.e. once per millisecond or more in normal use. Failure to poll frequently 
 /// enough is relatively harmless but may lead to lost acknowledgements.
 /// @returns 1 = an ack has been received with actual data in it, use rf12len
@@ -861,6 +903,36 @@ char rf12_easySend (const void* data, uint8_t size) {
     }
     ezPending = RETRIES;
     return 1;
+}
+
+/// @details
+/// When receiving data from other RFM12B/RFM12/RFM01 based units (Fine Offset
+/// weather stations, EMR power measurement plugs etc) is is convenient to let
+/// the RF12 driver handle HW interfacing but not use it's data protocol.
+/// Setting a fixed packet len for reception using this function disables the
+/// protocol handling when receiving data.
+/// Only the global variable
+///    * volatile byte rf12_data -   A pointer to the received data.
+/// will contain useful data when rf12_recvDone() returns success
+/// The buffer will contain fixed_pkt_len bytes of data to interpreted in
+/// whatever way is appropriate.
+/// Setting fixed_pkt_len to 0 (the default) returns to normal protocol behaviour.
+///
+/// Normal use in a "bridge" JeeNode would be (in a loop):
+///   rf12_initialize(...);
+///   rf12_control(...);         Whatever needed to match sender
+///   rf12_setRawRecvMode(...);
+///   while (!rf12_recvDone())
+///       ;
+///   ... interpret data ...
+///   rf12_setRawRecvMode(0);
+///   rf12_initialize(...);
+///   while (!rf12_canSend())
+///       ;
+///   rf12_sendStart(...);
+///   ... etc, ACKs or whatever ...
+void rf12_setRawRecvMode(uint8_t fixed_pkt_len) {
+    rf12_fixed_pkt_len = fixed_pkt_len > RF_MAX ? RF_MAX : fixed_pkt_len;
 }
 
 // XXTEA by David Wheeler, adapted from http://en.wikipedia.org/wiki/XXTEA

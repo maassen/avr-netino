@@ -19,21 +19,25 @@ You need:
    Auto-Reset feature (see Hardware mods below)
 2) arduino-0022 (or later) from [3] 
 3) avr isp programmer to burn the boot-loader
+4) optional:  Add-on for AVR-NET-IO (Art.Nr. 810 112) from Pollin [2]
 
 Then install this software in the arduino installation directory or in
 your sketchbook directory. You'll get hardware/avrnetio with the core and
 boot-loaders. In libraries you'll get patched versions of some libs by 
 overwriting (!) the original ones.
 
-If you install from the repository (not the zip files), you must link/copy/move
-board_avrnetio.def to board.def in hardware/avrnetio/cores/avrnetio. 
-To compile the boot-loader in hardware/avrnetio/bootloaders/atmega 
-make atmega32 atmega644p 
+If you install from the repository (not the zip files), you must
+compile the boot-loader in hardware/avrnetio/bootloaders/atmega 
+or hardware/avrnetio/bootloaders/optiboot:
+> make -f ../atmega/Makefile anio 
+Append your boad description from bootloader:
+> cat *.boards.txt >> ../../boards.txt
 
 Now start your Arduino IDE. You should find two new entries
 "AVR-NET-IO w/ ATmega32" and "AVR-NET-IO w/ ATmega32" in Tools->Board.
 Select the one you have. Connect your isp programmer to the board and
-select Tools->Burn Bootlader->[your ISP] to burn the boot-loader.
+select Tools->Programmer->[your ISP] and Tools->Burn Bootlader to burn 
+the boot-loader.
 
 Open an example, connect the serial port to your
 computer and download the sketch - Have Fun.

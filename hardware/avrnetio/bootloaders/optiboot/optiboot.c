@@ -116,6 +116,9 @@
 /* These must be defined, if LED_START_FLASHES or         */
 /* LED_DATA_FLASH is set.                                 */
 /*                                                        */
+/* BL,BL_PIN or BL_P and BL_B:                            */
+/* specify PIN port and Bit to force/skip bootloader      */
+/*                                                        */
 /* HAVE_PIN_DEFS to use pin_defs.h                        */
 /*                                                        */
 /* SUPPORT_EEPROM:                                        */
@@ -213,6 +216,11 @@ asm("  .section .version\n"
 #define LED_DATA_FLASH
 #endif
 
+#if defined(BL_P) && defined(BL_B)
+#define BL_PIN  _REG(PIN,BL_P)
+#define BL      _REG(PIN,_REG(BL_P,BL_B))
+#endif
+
 #ifdef LUDICROUS_SPEED
 #define BAUD_RATE 230400L
 #endif
@@ -273,6 +281,20 @@ asm("  .section .version\n"
 #ifdef WDE3
 #define WATCHDOG_4S     (_BV(WDP3) | _BV(WDE))
 #define WATCHDOG_8S     (_BV(WDP3) | _BV(WDP0) | _BV(WDE))
+#endif
+
+#if TIMEOUT_MS == 500
+#define WATCHDOG_DFT    WATCHDOG_500MS
+#elif TIMEOUT_MS == 1000
+#define WATCHDOG_DFT    WATCHDOG_1S
+#elif TIMEOUT_MS == 2000
+#define WATCHDOG_DFT    WATCHDOG_2S
+#elif TIMEOUT_MS == 3000
+#define WATCHDOG_DFT    WATCHDOG_4S
+#elif TIMEOUT_MS == 8000
+#define WATCHDOG_DFT    WATCHDOG_8S
+#else
+#define WATCHDOG_DFT    WATCHDOG_1S
 #endif
 
 /* Watch dog register names for old ATmegas */
@@ -413,7 +435,11 @@ int main(void) {
   // Adaboot no-wait mod
   ch = MCUSR;
   MCUSR = 0;
+#ifdef BL
+  if (!(ch & _BV(EXTRF)) && (BL_PIN & _BV(BL))) appStart();
+#else
   if (!(ch & _BV(EXTRF))) appStart();
+#endif	/* BL */
 
 #if (LED_START_FLASHES > 0) && defined(TCCR1B) 
   // Set up Timer 1 for timeout counter
@@ -438,7 +464,7 @@ int main(void) {
 #endif /* SOFT_UART */
 
   // Set up watchdog to trigger after 500ms
-  watchdogConfig(WATCHDOG_1S);
+  watchdogConfig(WATCHDOG_DFT);
 
   /* Set LED pin as output */
 #if defined(LED_DATA_FLASH) || (LED_START_FLASHES > 0)

@@ -45,10 +45,6 @@ int analogRead(uint8_t pin)
 #ifdef analogInputToDigitalPin
 	if (analogInputToDigitalPin(pin) < 0) 
 	  pin -= analogInputToDigitalPin(0);
-#elif defined(__AVR_ATmega1284__) || defined(__AVR_ATmega1284P__) || defined(__AVR_ATmega644__) || defined(__AVR_ATmega644A__) || defined(__AVR_ATmega644P__) || defined(__AVR_ATmega644PA__)
-	if (pin >= 24) pin -= 24; // allow for channel or pin numbers
-#elif defined(analogPinToChannel) && (defined(__AVR_ATtiny25__) || defined(__AVR_ATtiny45__) || defined(__AVR_ATtiny85__))
-	pin = analogPinToChannel(pin);
 #else
 	if (pin >= A0) pin -= A0; // allow for channel or pin numbers
 #endif

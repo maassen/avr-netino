@@ -7,6 +7,7 @@
   2011-01-04:	port to AVR-Net-IO by M.Maassen <mic.maassen@gmail.com>
   2012-01-21:   port to Arduino-1.0
   2013-10-03:   port to Arduino-1.0.5
+  2015-02-14:   port to Arduino-1.0.6/1.6.0
 
   This library is free software; you can redistribute it and/or
   modify it under the terms of the GNU Lesser General Public
@@ -30,15 +31,16 @@
 */
 
 #ifndef Pins_Arduino_h
-#define Pins_Arduino_h		0x20131003	/* Date 2013-10-03 */
+#define Pins_Arduino_h		0x20150214	/* Date YYYYMMDD */
 
-// we define AVRNETINO to flag avrnetino core
+// we define AVR_Netino to flag avrnetino core
 // with additional constants for libraries
 #ifndef AVR_Netino 
-#define AVR_Netino	0x20131003	/* Date 2012-10-03 */
+#define AVR_Netino	0x20150214	/* Date YYYYMMDD */
 #endif
 
 /* Hopfully this will be setable in future arduino ide's boards.txt */
+/* this macro also flags the persence of a board.def file */
 #ifndef BOARD_DEF
 #define BOARD_DEF	"board.def"
 #endif
@@ -116,7 +118,9 @@ enum arduino_compat {
 #define ArduinoDefs_PWM
 #define ArduinoDefs_PCINT
 #define ArduinoDefs_USB
+#define ArduinoDefs_Serial
 #include BOARD_DEF
+#undef ArduinoDefs_Serial
 #undef ArduinoDefs_USB
 #undef ArduinoDefs_PCINT
 #undef ArduinoDefs_PWM
@@ -355,5 +359,23 @@ const int8_t PROGMEM analog_input_to_digital_pin_PGM[] = {
 
 
 #endif	/* ARDUINO_MAIN */
+
+// These serial port names are intended to allow libraries and architecture-neutral
+// sketches to automatically default to the correct port name for a particular type
+// of use.  For example, a GPS module would normally connect to SERIAL_PORT_HARDWARE_OPEN,
+// the first hardware serial port whose RX/TX pins are not dedicated to another use.
+//
+// SERIAL_PORT_MONITOR        Port which normally prints to the Arduino Serial Monitor
+//
+// SERIAL_PORT_USBVIRTUAL     Port which is USB virtual serial
+//
+// SERIAL_PORT_LINUXBRIDGE    Port which connects to a Linux system via Bridge library
+//
+// SERIAL_PORT_HARDWARE       Hardware serial port, physical RX & TX pins.
+//
+// SERIAL_PORT_HARDWARE_OPEN  Hardware serial ports which are open for use.  Their RX & TX
+//                            pins are NOT connected to anything by default.
+
+/*** set by ArduinoDefs_Serial ***/
 
 #endif	/* Pins_Arduino_h */
