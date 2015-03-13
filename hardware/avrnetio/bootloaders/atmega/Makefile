@@ -612,28 +612,30 @@ endif
 	@echo "##################################################" >> $@
 	@echo "$(BRD).name=$(BOARD) ($(core))" >> $@
 
+	@echo "$(BRD).bootloader.tool=$(AVRPRG)" >> $@
 	@echo "$(BRD).upload.tool=$(AVRPRG)" >> $@
 	@echo "$(BRD).upload.speed=$(BAUD)" >> $@
 	@echo "$(BRD).upload.protocol=$(PROTOCOL)" >> $@
-
-	@echo "$(BRD).bootloader.tool=$(AVRPRG)" >> $@
-	@echo "$(BRD).bootloader.low_fuses=0x$(LFUSE)" >> $@
-	@echo "$(BRD).bootloader.high_fuses=0x$(HFUSE)" >> $@
-	@echo $(if $(EFUSE),,'#') "$(BRD).bootloader.extended_fuses=0x$(EFUSE)" >> $@
-	@echo "$(BRD).bootloader.unlock_bits=0x$(ULOCK)" >> $@
-	@echo "$(BRD).bootloader.lock_bits=0x$(LOCK)" >> $@
 
 	@echo "$(BRD).build.core=$(core)" >> $@	
 	@echo "$(BRD).build.board=$(BOARD)" >> $@
 	@echo "$(BRD).build.f_cpu=$(AVR_FREQ)" >> $@
 	@echo $(if $(variant),,'#') "$(BRD).build.variant=$(variant)" >> $@
+
 	@echo "# CPU stuff ---------------- (remove for cpu menu)" >> $@
 	@echo "$(BRD).build.mcu=$(MCU_TARGET)" >> $@
+
 	@echo -n "$(BRD).upload.maximum_size=" >> $@
 	@$(AWK) 'BEGIN {print $(LDSECTION);}' >> $@
 	# DEBUG: how to get ram size from cpu type? I use 1/16 of flash
 	@echo -n "$(BRD).upload.maximum_data_size=" >> $@
 	@$(AWK) 'BEGIN {print lshift(1,int(log($(LDSECTION))/log(2)+.5)-4);}' >> $@
+
+	@echo "$(BRD).bootloader.low_fuses=0x$(LFUSE)" >> $@
+	@echo "$(BRD).bootloader.high_fuses=0x$(HFUSE)" >> $@
+	@echo $(if $(EFUSE),,'#') "$(BRD).bootloader.extended_fuses=0x$(EFUSE)" >> $@
+	@echo "$(BRD).bootloader.unlock_bits=0x$(ULOCK)" >> $@
+	@echo "$(BRD).bootloader.lock_bits=0x$(LOCK)" >> $@
 	@echo "$(BRD).bootloader.file=$(bldr)/$<" >> $@
 	@$(OBJSIZE) $(<:%.hex=%.elf) | $(AWK) '{print "# " $$0;}' >> $@
 	@echo "#.BootLoader ($(SRC)) compile options:" >> $@
@@ -646,6 +648,8 @@ endif
 	@echo "# $(TARGET): $(core) /w $(MCU_TARGET) ($(SRC))" >> $@
 	@echo "#-------------------------------------------------" >> $@
 	@echo "$(BRD).menu.cpu.$(TARGET)=$(MCU_TARGET) ($(SRC))" >> $@
+	@echo "$(BRD).menu.cpu.$(TARGET).build.mcu=$(MCU_TARGET)" >> $@
+	@echo "$(BRD).menu.cpu.$(TARGET).build.f_cpu=$(AVR_FREQ)" >> $@
 
 	@echo "$(BRD).menu.cpu.$(TARGET).upload.protocol=$(PROTOCOL)" >> $@
 	@echo -n "$(BRD).menu.cpu.$(TARGET).upload.maximum_size=" >> $@
@@ -659,9 +663,9 @@ endif
 	@$(OBJSIZE) $(<:%.hex=%.elf) | $(AWK) '{print "# " $$0;}' >> $@
 	@echo "$(BRD).menu.cpu.$(TARGET).bootloader.low_fuses=0x$(LFUSE)" >> $@
 	@echo "$(BRD).menu.cpu.$(TARGET).bootloader.high_fuses=0x$(HFUSE)" >> $@
-	@echo $(if $(EFUSE),,'#') "$(BRD).menu.cpu.$(TARGET).bootloader.extended_fuses=0x$(EFUSE)" >> $@
-	@echo "$(BRD).menu.cpu.$(TARGET).build.mcu=$(MCU_TARGET)" >> $@
-	@echo "$(BRD).menu.cpu.$(TARGET).build.f_cpu=$(AVR_FREQ)" >> $@
+	@echo "$(BRD).menu.cpu.$(TARGET).bootloader.$(if $(EFUSE),extended_fuses=0x$(EFUSE),tool=$(AVRPRG)NoEFuse)" >> $@
+	@echo "$(BRD).menu.cpu.$(TARGET).bootloader.lock_bits=0x$(LOCK)" >> $@
+	@echo "$(BRD).menu.cpu.$(TARGET).bootloader.unlock_bits=0x$(ULOCK)" >> $@
 	@echo "#-------------------------------------------------" >> $@
 
 BOARDS = $(wildcard *.boards.txt)
