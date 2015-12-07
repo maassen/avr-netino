@@ -53,6 +53,7 @@ int analogRead(uint8_t pin)
 	// i.e. leonardo
 	pin = analogPinToChannel(pin);
 #endif
+
 #if defined(ADCSRB) && defined(MUX5)
 	// the MUX5 bit of ADCSRB selects whether we're reading from channels
 	// 0 to 7 (MUX5 low) or 8 to 15 (MUX5 high).
@@ -156,6 +157,14 @@ void analogWrite(uint8_t pin, int val)
 				// connect pwm to pin on timer 1, channel B
 				sbi(TCCR1A, COM1B1);
 				OCR1B = val; // set pwm duty
+				break;
+			#endif
+
+			#if defined(TCCR1A) && defined(COM1C1)
+			case TIMER1C:
+				// connect pwm to pin on timer 1, channel B
+				sbi(TCCR1A, COM1C1);
+				OCR1C = val; // set pwm duty
 				break;
 			#endif
 

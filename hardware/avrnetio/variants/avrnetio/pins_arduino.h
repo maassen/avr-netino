@@ -31,12 +31,12 @@
 */
 
 #ifndef Pins_Arduino_h
-#define Pins_Arduino_h		0x20150214	/* Date YYYYMMDD */
+#define Pins_Arduino_h		0x20151126	/* Date YYYYMMDD */
 
 // we define AVR_Netino to flag avrnetino core
 // with additional constants for libraries
 #ifndef AVR_Netino 
-#define AVR_Netino	0x20150214	/* Date YYYYMMDD */
+#define AVR_Netino	0x20151126	/* Date YYYYMMDD */
 #endif
 
 /* Hopfully this will be setable in future arduino ide's boards.txt */
@@ -62,13 +62,6 @@ enum analog_pin_order {
 #include BOARD_DEF
 #undef anaDef
   pins_count_analog,			/* number of analog inputs */
-}; 
-
-  /* this enum maps analog names A0,A1,... to pin numbers */
-enum analog_by_pin { 
-#define anaDef(a,p,c,...) A##a = p,
-#include BOARD_DEF
-#undef anaDef
 }; 
 
 
@@ -135,6 +128,17 @@ enum arduino_compat {
 #define NUM_ANALOG_INPUTS           pins_count_analog
 #endif
 
+#ifdef NoAnalog
+/* define NoAnalog if AVR has no ADC */
+enum analog_by_pin { A0 = pins_count_digital};
+#else
+/* this enum maps analog names A0,A1,... to pin numbers */
+enum analog_by_pin { 
+#define anaDef(a,p,c,...) A##a = p,
+#include BOARD_DEF
+#undef anaDef
+}; 
+
 #ifndef analogPinToChannel
 extern const uint8_t PROGMEM analog_pin_to_channel_PGM[];
 #define analogPinToChannel(P)  (((P) < NUM_ANALOG_INPUTS) ? pgm_read_byte( analog_pin_to_channel_PGM+(P)):-1)
@@ -146,6 +150,7 @@ extern const int8_t PROGMEM analog_input_to_digital_pin_PGM[];
 #define analogInputToDigitalPin(P)  (((P) < NUM_ANALOG_INPUTS) ? pgm_read_byte(analog_input_to_digital_pin_PGM+(P)): -1)
 #define MAP_ANALOG_PIN
 #endif
+#endif /* NoAnalog */
 
 #ifndef digitalPinHasPWM
 extern const uint8_t PROGMEM digital_pin_to_timer_PGM[];

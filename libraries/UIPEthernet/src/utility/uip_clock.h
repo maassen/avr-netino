@@ -47,7 +47,7 @@
  *
  * Author: Adam Dunkels <adam@sics.se>
  *
- * $Id: clock.h,v 1.3 2006/06/11 21:46:39 adam Exp $
+ * $Id$
  */
 #ifndef __UIP_CLOCK_H__
 #define __UIP_CLOCK_H__

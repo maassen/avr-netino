@@ -84,6 +84,9 @@ static void turnOffPWM(uint8_t timer)
 		#if defined(TCCR1A) && defined(COM1B1)
 		case TIMER1B:   cbi(TCCR1A, COM1B1);    break;
 		#endif
+		#if defined(TCCR1A) && defined(COM1C1)
+		case TIMER1C:   cbi(TCCR1A, COM1C1);    break;
+		#endif
 		
 		#if defined(TCCR2) && defined(COM21)
 		case  TIMER2:   cbi(TCCR2, COM21);      break;
@@ -95,7 +98,7 @@ static void turnOffPWM(uint8_t timer)
 		case  TIMER0A:  cbi(TCCR0, COM01);    break;
 		#endif
 		
-		#if defined(TIMER0B) && defined(COM0B1)
+		#if defined(TCCR0A) && defined(COM0B1)
 		case  TIMER0B:  cbi(TCCR0A, COM0B1);    break;
 		#endif
 		#if defined(TCCR2A) && defined(COM2A1)
@@ -126,6 +129,10 @@ static void turnOffPWM(uint8_t timer)
 		#endif			
 		#if defined(TCCR4C) && defined(COM4D1)
 		case TIMER4D:	cbi(TCCR4C, COM4D1);	break;
+		#endif			
+			
+                #if defined(TCCR4C) && defined(COM4D1) && defined(PWM4D)
+	        case TIMER4D:   cbi(TCCR4C, COM4D1);    break;
                 #elif defined(TCCR4A) && defined(COM4D1)
 	        case TIMER4D:   cbi(TCCR4A, COM4D1);    break;
 		#endif

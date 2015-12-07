@@ -54,7 +54,7 @@
  *
  * This file is part of the uIP TCP/IP stack.
  *
- * $Id: uip_arp.c,v 1.8 2006/06/02 23:36:21 adam Exp $
+ * $Id$
  *
  */
 

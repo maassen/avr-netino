@@ -28,6 +28,8 @@ AVRPRG=avrdude
 #PROGRAM	   = optiboot
 PROGRAM    = $(basename $(wildcard *.c))
 
+MCU_DEF = $(shell echo $(MCU_TARGET)|awk '{$$0=toupper($$0);sub("MEGA","mega");sub("TINY","tiny");print "__AVR_" $$0 "__"}')
+
 PROTOCOL   = stk500
 
 # enter the parameters for the avrdude isp tool
@@ -36,6 +38,10 @@ ISPTOOL	   = avrispmkII
 #ISPTOOL	   = usbasp
 ISPPORT	   = usb
 ISPSPEED   = -b 115200
+
+# uncomment the following line, if you want the variant folder be first in 
+# include search order
+#BUILD_EXTRA = -I{runtime.hardware.path}/avr/variants/{build.variant}
 
 # the efuse should really be 0xf8; since, however, only the lower
 # three bits of that byte are used on the atmega168, avrdude gets
@@ -140,8 +146,9 @@ ARDUINO_MEGA = mega
 ARDUINO = $(ARDUINOx8) $(ARDUINOx8RC) $(ARDUINO_MEGA)
 # pure ATtiny chips
 TINY = tiny25 tiny45 tiny44
+TINYx13 = tiny2313
 # all tinys
-ATTINY = luminet $(TINY)
+ATTINY = luminet $(TINY) $(TINYx13)
 # Carrera Digital
 SCAR = bbox132
 # all boards
@@ -149,13 +156,42 @@ ALL = $(ANIO) $(ARDUINO) $(ATTINY) $(SCAR)
 
 IHEX_AWK = 'BEGIN {c=0;s=0;v=""}; {c+=1;s+=$$0;v=sprintf("%s%02X",v,$$0)}; END {s+=c+A%256+int(A/256)+T; printf (":%02X%04X%02X%s%02X\n",c,A,T,v,(256-(s%256))) };'
 RJMP_AWK = '{x=strtonum($$0)/2-1+0xC000;printf("%i %i",int(x/256),x%256)}'
+
 anio: $(ANIO)
+	echo "menu.cpu=Processor" > $@_board.txt
+	awk '/remove for/ {exit(0)}; {print $0}' $(<:%=$(PROGRAM)_%.brd.txt) >> $@_board.txt
+	cat $(^:%=$(PROGRAM)_%.cpu.txt) >> $@_board.txt
+	cat $(^:%=$(PROGRAM)_%.h) > $@_bootloader_settings.h
 
 arduino8: $(ARDUINOx8)
+	echo "menu.cpu=Processor" > $@_board.txt
+	awk '/remove for/ {exit(0)}; {print $0}' $(<:%=$(PROGRAM)_%.brd.txt) >> $@_board.txt
+	cat $(^:%=$(PROGRAM)_%.cpu.txt) >> $@_board.txt
+	cat $(^:%=$(PROGRAM)_%.h) > $@_bootloader_settings.h
 
 RC: $(ARDUINOx8RC)
+	echo "menu.cpu=Processor" > $@_board.txt
+	awk '/remove for/ {exit(0)}; {print $0}' $(<:%=$(PROGRAM)_%.brd.txt) >> $@_board.txt
+	cat $(^:%=$(PROGRAM)_%.cpu.txt) >> $@_board.txt
+	cat $(^:%=$(PROGRAM)_%.h) > $@_bootloader_settings.h
 
 tiny: $(TINY)
+	echo "menu.cpu=Processor" > $@_board.txt
+	awk '/remove for/ {exit(0)}; {print $0}' $(<:%=$(PROGRAM)_%.brd.txt) >> $@_board.txt
+	cat $(^:%=$(PROGRAM)_%.cpu.txt) >> $@_board.txt
+	cat $(^:%=$(PROGRAM)_%.h) > $@_bootloader_settings.h
+
+t2313: $(TINYx13)
+	echo "menu.cpu=Processor" > $@_board.txt
+	awk '/remove for/ {exit(0)}; {print $0}' $(<:%=$(PROGRAM)_%.brd.txt) >> $@_board.txt
+	cat $(^:%=$(PROGRAM)_%.cpu.txt) >> $@_board.txt
+	cat $(^:%=$(PROGRAM)_%.h) > $@_bootloader_settings.h
+
+scar: $(SCAR)
+	echo "menu.cpu=Processor" > $@_board.txt
+	awk '/remove for/ {exit(0)}; {print $0}' $(<:%=$(PROGRAM)_%.brd.txt) >> $@_board.txt
+	cat $(^:%=$(PROGRAM)_%.cpu.txt) >> $@_board.txt
+	cat $(^:%=$(PROGRAM)_%.h) > $@_bootloader_settings.h
 
 all: $(ALL)
 
@@ -237,9 +273,10 @@ ng8 ng8_isp: HFUSE = D8
 endif
 ng8 ng8_isp: LFUSE = BF
 
-# Arduino w/ ATmega8@16MHz w/o auto-reset 
+# Arduino w/ ATmega88@16MHz w/o auto-reset 
 ng88 ng88_isp: TARGET = ng88
-ng88 ng88_isp: MCU_TARGET = atmega8
+ng88 ng88_isp: MCU_TARGET = atmega88
+ng88 ng88_isp: AVR_FREQ = 16000000L
 ng88 ng88_isp: CFLAGS += '-DMAX_TIME_COUNT=F_CPU>>1' 
 ng88 ng88_isp: BAUD = $(if $(OPTI_BAUD),$(OPTI_BAUD),19200)
 ifeq ($(PROGRAM),optiboot)
@@ -454,9 +491,11 @@ luminet luminet_isp: EFUSE = FE # Self-programming enable
 $(TINY) $(TINY:%=%_isp): AVR_FREQ = 8000000L
 $(TINY) $(TINY:%=%_isp): CFLAGS += '-DSOFT_UART' #'-DBAUD_RATE=9600'
 $(TINY) $(TINY:%=%_isp): CFLAGS += '-DVIRTUAL_BOOT_PARTITION'
+$(TINY) $(TINY:%=%_isp): CFLAGS += '-DRAMSTART=0x60'
 $(TINY) $(TINY:%=%_isp): BAUD = 9600
 $(TINY) $(TINY:%=%_isp): BOARD = ATtiny
 $(TINY) $(TINY:%=%_isp): variant = tiny
+$(TINY) $(TINY:%=%_isp): BRD = attiny
 
 tiny25 tiny25_isp: TARGET = tiny25
 tiny25 tiny25_isp: MCU_TARGET = attiny25
@@ -500,6 +539,29 @@ tiny44 tiny44_isp: LFUSE = 62 # 1MHz internal oscillator, slowly rising power
 tiny44 tiny44_isp: EFUSE = FE # Self-programming enable
 
 ############################################################
+# ATtiny (8MHz clocked platforms)
+############################################################
+$(TINYx13) $(TINYx13:%=%_isp): AVR_FREQ = 8000000L
+$(TINYx13) $(TINYx13:%=%_isp): CFLAGS += '-DVIRTUAL_BOOT_PARTITION'
+$(TINYx13) $(TINYx13:%=%_isp): CFLAGS += '-DRAMSTART=0x60'
+$(TINYx13) $(TINYx13:%=%_isp): BAUD = 57600
+$(TINYx13) $(TINYx13:%=%_isp): BOARD = ATtiny2313
+$(TINYx13) $(TINYx13:%=%_isp): variant = tiny2313
+$(TINYx13) $(TINYx13:%=%_isp): BRD = attinyX13
+$(TINYx13) $(TINYx13:%=%_isp): ULOCK = 3f
+
+tiny2313 tiny2313_isp: TARGET = tiny2313
+tiny2313 tiny2313_isp: MCU_TARGET = attiny2313
+ifeq ($(PROGRAM),optiboot)
+tiny2313 tiny2313_isp: LDSECTION  = 0x5E0 
+else
+endif
+tiny2313 tiny2313_isp: HFUSE = DF # Brownout disabled
+tiny2313 tiny2313_isp: LFUSE = E4 # 8MHz internal oscillator, slowly rising power
+tiny2313 tiny2313_isp: EFUSE = FE # Self-programming enable
+tiny2313 tiny2313_isp: PREDAT = $(shell echo $(LDSECTION)|$(AWK) $(RJMP_AWK))
+
+############################################################
 # Carrera Black Box D132 (30344) w/ ATmega16
 ############################################################
 bbox132 bbox132_isp: AVR_FREQ = 8000000L
@@ -512,6 +574,7 @@ bbox132 bbox132_isp: LDFLAGS +=
 bbox132 bbox132_isp: BOARD = BLACK_BOX_D132
 bbox132 bbox132_isp: variant = bbox132
 bbox132 bbox132_isp: BRD=bbox132
+bbox132 bbox132_isp: BUILD_EXTRA += -DTIMER0_CLK_SRC=2
 
 bbox132 bbox132_isp: TARGET = bbox132
 bbox132 bbox132_isp: MCU_TARGET = atmega16
@@ -529,7 +592,7 @@ bbox132 bbox132_isp: LFUSE = 2F
 ############################################################
 # machine room
 ############################################################
-$(ALL):%:$(PROGRAM)_%.hex $(PROGRAM)_%.boards.txt $(PROGRAM)_%.brd.txt $(PROGRAM)_%.cpu.txt
+$(ALL):%:$(PROGRAM)_%.hex $(PROGRAM)_%.boards.txt $(PROGRAM)_%.brd.txt $(PROGRAM)_%.cpu.txt $(PROGRAM)_%.h
 $(ALL:%=%_isp):%_isp: % isp
 
 isp: $(TARGET)
@@ -621,7 +684,7 @@ endif
 	@echo "$(BRD).build.board=$(BOARD)" >> $@
 	@echo "$(BRD).build.f_cpu=$(AVR_FREQ)" >> $@
 	@echo $(if $(variant),,'#') "$(BRD).build.variant=$(variant)" >> $@
-
+	@echo $(if $(BUILD_EXTRA),,'#') "$(BRD).build.extra_flags=$(BUILD_EXTRA)" >> $@
 	@echo "# CPU stuff ---------------- (remove for cpu menu)" >> $@
 	@echo "$(BRD).build.mcu=$(MCU_TARGET)" >> $@
 
@@ -667,6 +730,45 @@ endif
 	@echo "$(BRD).menu.cpu.$(TARGET).bootloader.lock_bits=0x$(LOCK)" >> $@
 	@echo "$(BRD).menu.cpu.$(TARGET).bootloader.unlock_bits=0x$(ULOCK)" >> $@
 	@echo "#-------------------------------------------------" >> $@
+
+%.h: %.hex
+	@echo "/***********************************************************" > $@
+	@echo " * $(BOARD) - $(TARGET) - $(MCU_TARGET)" >> $@
+	@echo " **********************************************************/" >> $@
+	@echo "#ifndef BOOTLOADER_SETTINGS_H" >> $@
+	@echo "#if defined($(MCU_DEF))" >> $@
+	@echo "#define BOOTLOADER_SETTINGS_H" $$(date +"0X%Y%m%d") >> $@
+	@echo $(CFLAGS) | awk 'BEGIN {FS="="; RS=" "; OFS=" "}; /^-D/ {$$1="#define BOOTLOADER_" substr($$1,3); print }' >> $@
+	@echo '#define BOOTLOADER_PROGRAM "$(PROGRAM)"' >> $@
+	@echo '#define BOOTLOADER_TOOL "$(AVRPRG)"' >> $@
+	@echo '#define BOOTLOADER_TARGET "$(TARGET)"' >> $@
+	@echo '#define BOOTLOADER_PROTOCOL "$(PROTOCOL)"' >> $@
+	@echo '#define BOOTLOADER_LOW_FUSES 0x$(LFUSE)' >> $@
+	@echo '#define BOOTLOADER_HIGH_FUSES 0x$(HFUSE)' >> $@
+	@echo $(if $(EFUSE),'#define BOOTLOADER_EXTENDED_FUSES 0x$(EFUSE)',) >> $@
+	@echo '#define BOOTLOADER_UNLOCK_BITS 0x$(ULOCK) ' >> $@
+	@echo '#define BOOTLOADER_LOCK_BITS 0x$(LOCK) ' >> $@
+	@echo '#define BOOTLOADER_FILE "$(bldr)/$<" ' >> $@
+	@echo '#define BOOTLOADER_BOARD_NAME "$(BOARD) ($(core))"' >> $@
+	@echo '#define BOOTLOADER_BOARD_ID "$(BRD)"' >> $@
+	@echo '#define BOOTLOADER_BUILD_CORE "$(core)" ' >> $@
+	@echo '#define BOOTLOADER_BUILD_BOARD "$(BOARD)" ' >> $@
+	@echo $(if $(variant),'#define BOOTLOADER_BUILD_VARIANT "$(variant)"',) >> $@
+	@echo $(if $(BUILD_EXTRA),'#define BOOTLOADER_BUILD_EXTRA_FLAGS "$(BUILD_EXTRA)"',) >> $@
+	@echo '#define BOOTLOADER_BUILD_MCU "$(MCU_TARGET)" ' >> $@
+	@echo '' >> $@
+	@echo '#define BOOTLOADER_PORTPIN(P,B) BOOTLOADER_pins_port(P,B)' >> $@
+	@echo '#define BOOTLOADER_pins_port(P,B) pins_port_##P##B' >> $@
+	@echo '#if defined(BOOTLOADER_LED_P) && defined(BOOTLOADER_LED_B)' >> $@
+	@echo '#define BOOTLOADER_LED BOOTLOADER_PORTPIN(BOOTLOADER_LED_P,BOOTLOADER_LED_B)' >> $@
+	@echo "#endif" >> $@
+	@echo '#if defined(BOOTLOADER_BL_P) && defined(BOOTLOADER_BL_B)' >> $@
+	@echo '#define BOOTLOADER_SWITCH BOOTLOADER_PORTPIN(BOOTLOADER_BL_P,BOOTLOADER_BL_B)' >> $@
+	@echo "#endif" >> $@
+	@echo "#endif /* $(MCU_TARGET) */" >> $@
+	@echo "#endif /* BOOTLOADER_SETTINGS_H */" >> $@
+
+
 
 BOARDS = $(wildcard *.boards.txt)
 boards.txt: $(BOARDS)

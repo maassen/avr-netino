@@ -52,7 +52,18 @@
 //                  +----+
 //
 // (PWM+ indicates the additional PWM pins on the ATmega168.)
-
+/***********************************************************
+ * For compatiblity with AVR-Net-IO, I assume following
+ * Hardware connected to SPI bus:
+ * 1) ENC28J60 (simmilar to Arduino Ethernet Shield):
+ *  - CS  on SS/D10
+ *  - IRQ on INT0/D2
+ * 2) SDcard  (simmilar to Arduino Ethernet Shield):
+ *  - CS  on D4
+ * 3) RFM12(B):
+ *  - CS  on PB1/D9
+ *  - IRQ on INT1/D3 
+ ***********************************************************/
 /***********************************************************
  * things we want allways 
  ***********************************************************/
@@ -69,13 +80,13 @@
 /* 0 */
 pinDef( D, 0 , NOT_ON_TIMER ,	RXD	, RS232_RxD,16)
 pinDef( D, 1 , NOT_ON_TIMER ,	TXD	, RS232_TxD,17)
-pinDef( D, 2 , NOT_ON_TIMER ,	INT0	, D2,18)
+pinDef( D, 2 , NOT_ON_TIMER ,	INT0	, ENC28J60_IRQ,18)
 #ifdef COM2B1
-pinDef( D, 3 , TIMER2B	    ,	INT1	, D3,19)
+pinDef( D, 3 , TIMER2B	    ,	INT1	, RFM12_IRQ,19)
 #else
-pinDef( D, 3 , NOT_ON_TIMER ,	INT1	, D3,19)
+pinDef( D, 3 , NOT_ON_TIMER ,	INT1	, RFM12_IRQ,19)
 #endif
-pinDef( D, 4 , NOT_ON_TIMER ,	T0	, D4,20)
+pinDef( D, 4 , NOT_ON_TIMER ,	T0	, SDcard_CS,20)
 #ifdef COM0B1
 pinDef( D, 5 , TIMER0B	    ,	T1	, D5,21)
 pinDef( D, 6 , TIMER0A	    ,	AIN0	, D6,22)
@@ -87,8 +98,8 @@ pinDef( D, 7 , NOT_ON_TIMER ,	AIN1	, D7,23)
 
   /* pin 8 */
 pinDef( B, 0 , NOT_ON_TIMER ,	ICP1	, D8,0)
-pinDef( B, 1 , TIMER1A      ,	OC1A	, D9,1)
-pinDef( B, 2 , TIMER1B      ,	SS	, D10,2)
+pinDef( B, 1 , TIMER1A      ,	OC1A	, RFM12_CS,1)
+pinDef( B, 2 , TIMER1B      ,	SS	, ENC28J60_CS,2)
 #ifdef COM21
 pinDef( B, 3 , TIMER2	    ,	MOSI	, D11,3)
 #else
@@ -198,6 +209,26 @@ anaDef( 7, -1, 7)		/* not on digital pin */
 
 #if defined( All_Constants ) || defined( Arduino_Constants )
 defConstant(defClass(ARDUINO,LED_BUILTIN), pins_LED)
+#endif
+
+
+/***********************************************************
+ * the following is for compatiblity w/ AVR-Net-IO:
+ ***********************************************************/
+#if defined( All_Constants ) || defined( LCD_Constants )
+// LCD in 4BitMode at PCF8574 
+// IMPORTANT: Pin1&2 of the LCD connector are NOT usual at the AddOn board 
+defConstant(defClass(I2C_LCD,ADR) , 0x20) //PCF8574=0x20 PCF8574A=0x38 (7Bit adr)
+defConstant(defClass(I2C_LCD,NBL) , 0   )	// 4Bit-Bus at P0-P3 
+defConstant(defClass(I2C_LCD,RS)  , 0x10)	// P4 D/I
+defConstant(defClass(I2C_LCD,RW)  , 0x20)	// P5 R/W
+defConstant(defClass(I2C_LCD,E)   , 0x40)	// P6 Enable
+defConstant(defClass(I2C_LCD,BL)  , 0x80)	// P7 Back Light 
+#endif
+
+#if defined( All_Constants ) || defined( IRQ_Constants )
+defConstant(defClass(ENC28J60,INR) ,  0  )	// Int Nr of ENC28J60
+defConstant(defClass(RFM12,INR)	   ,  1  )	// Int Nr of RFM12
 #endif
 
 defConstant(defClass(_internal_,_avoid_empty_enum_),0)
