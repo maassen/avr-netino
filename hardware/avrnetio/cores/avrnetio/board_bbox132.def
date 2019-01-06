@@ -8,7 +8,7 @@
  * Copyright (c) 2015 Michael Maassen
  * 
  * 2011-01-04:	port to AVR-Net-IO by M.Maassen <mic.maassen@gmail.com>
- * 2012-02-14:  port to Carrera Black Box D132 w/ Arduino 1.0.6
+ * 2015-02-14:  port to Carrera Black Box D132 w/ Arduino 1.0.6
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
@@ -125,15 +125,35 @@
  * PB1    is Start button
  * PB2    Lap Counter
  * PB3    Tower IR Led output
+ * ---------------------------------------------------------
+ * Original Black Box has no car id sensors, but my 
+ * modification uses PD3(INT1) {Tower2} and PD6(ICP1) {Modul}
+ * as car id sensors (SFH309FA + LM393).
+ * [http://openslot.de/umbauanleitung/blackbox.php (but PD2->PD6)]
+ * additional Reset is avaiable on SpeedContoller_4 Pin1 and
+ * via 100nF on PCUnit Pin5 
  ***********************************************************/
-
+/***********************************************************
+ *****               Connectors                        *****
+ *      PC - UNIT                       MODUL
+ *
+ * (15V) / *|* \  GND           (15V) / *** \  GND
+ *   5V | * # * | (DTR)         (5V) | *  ** | PD5/<6>
+ *  RxD  \.* *./  TxD            SDA  \.* *./  SCL
+ *
+ * Car Sensor (internal):
+ *   1 *  5V
+ *     *  INT1
+ *     *  ICP1
+ *     *  GND
+ *     *  (INT2)
 /***********************************************************
  * things we want allways 
  ***********************************************************/
 // we define BLACK_BOX_D132 to flag different pinnig to libraries
 // if set, we compile for Carrera BlackBox D132
 #ifndef BLACK_BOX_D132
-#define BLACK_BOX_D132	0x20150215	/* Date YYYYMMDD */
+#define BLACK_BOX_D132	0x20190103	/* Date YYYYMMDD */
 #endif
 
 #ifdef pinDef
@@ -168,11 +188,11 @@ pinDef( C, 7 , NOT_ON_TIMER,TOSC2,LED3,23)
 pinDef( D, 0 , NOT_ON_TIMER,RXD,PC_RxD,24)
 pinDef( D, 1 , NOT_ON_TIMER,TXD,PC_TxD,25)
 pinDef( D, 2 , NOT_ON_TIMER,INT0,Tower1,26)
-pinDef( D, 3 , NOT_ON_TIMER,INT1,CarID,27)
+pinDef( D, 3 , NOT_ON_TIMER,INT1,CarID1,27) /* Tower2 */
 pinDef( D, 4 , TIMER1B,OC1B,Track,28)
 pinDef( D, 5 , TIMER1A,OC1A,ModulA,29)
 #ifdef COM21
-pinDef( D, 6 , NOT_ON_TIMER,ICP1,ModulB,30)
+pinDef( D, 6 , NOT_ON_TIMER,ICP1,CarID2,30) /* ModulB */
 pinDef( D, 7 , TIMER2,OC2,Buzzer,31)
 #else
 pinDef( D, 6 , TIMER2B,OC2B,ModulB,30)
@@ -258,13 +278,25 @@ anaDef( 7, 31, 7)
 
 
 #if defined( All_Constants ) || defined( Arduino_Constants )
+// use center LED as builtin led
+defConstant(defClass(LED,BUILTIN), pins_LED3)
 #endif
 
+#if defined( All_Constants ) || defined( LCD_Constants )
+// LCD in 4BitMode at PCF8574 *** AVR-NetIO AddOn ***
+// IMPORTANT: Pin1&2 of the LCD connector are NOT usual at the AddOn board 
+defConstant(defClass(I2C_LCD,ADR) , 0x20) //PCF8574=0x20 PCF8574A=0x38 (7Bit adr)
+defConstant(defClass(I2C_LCD,NBL) , 0   )	// 4Bit-Bus at P0-P3 
+defConstant(defClass(I2C_LCD,RS)  , 0x10)	// P4 D/I
+defConstant(defClass(I2C_LCD,RW)  , 0x20)	// P5 R/W
+defConstant(defClass(I2C_LCD,E)   , 0x40)	// P6 Enable
+defConstant(defClass(I2C_LCD,BL)  , 0x80)	// P7 Back Light 
+#endif
 
 #if defined( All_Constants ) || defined( IRQ_Constants )
-defConstant(defClass(CAR,INR) ,  2  )	// Int Nr of ENC28J60
-defConstant(defClass(CONTROL,INR)	   ,  1  )	// Int Nr of RFM12
-defConstant(defClass(LAPCOUNT,INR)	   ,  1  )	// Int Nr of RFM12
+defConstant(defClass(TOWER,INR) ,  0  )	// Int Nr of Tower (IR controller receive)
+defConstant(defClass(LaneID1,INR)	   ,  1  )	// Int Nr of Lane IR receiver
+defConstant(defClass(LAPCOUNT,INR)	   ,  2  )	// Int Nr of LapCount
 #endif
 
 defConstant(defClass(_internal_,_avoid_empty_enum_),0)

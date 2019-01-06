@@ -22,7 +22,7 @@
 #endif		      // ARDUINO
 
 
-#ifdef AVR_NET_IO
+#if defined(AVR_NET_IO) || defined(BLACK_BOX_D132)
 #if ARDUINO < 100
 #include <pins_arduino.h>
 #endif
@@ -277,7 +277,7 @@ inline void LiquidCrystal_I2C::command(uint8_t value) {
 
 inline size_t LiquidCrystal_I2C::write(uint8_t value) {
 	send(value, _Rs);
-	return 0;
+	return 1;
 }
 
 

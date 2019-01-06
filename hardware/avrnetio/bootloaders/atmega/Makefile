@@ -92,6 +92,8 @@ AWK        = $(ARDUINO_DIR)\hardware\tools\avr\utils\bin\gawk
 else
 # good old un*x system :-)
 ifneq ($(TOOLROOT),)
+# we need gcc w/ support for: -mshort-calls
+# use: make TOOLROOT=/opt/arduino-1.0.6/hardware/tools/ ...
 GCCROOT = $(TOOLROOT)/avr/bin/
 AVRDUDE_CONF = -C$(TOOLROOT)/avr/etc/avrdude.conf
 else
@@ -145,14 +147,16 @@ ARDUINO_MEGA = mega
 # all arduino
 ARDUINO = $(ARDUINOx8) $(ARDUINOx8RC) $(ARDUINO_MEGA)
 # pure ATtiny chips
-TINY = tiny25 tiny45 tiny44
+TINY = tiny25 tiny45 tiny85 tiny44
 TINYx13 = tiny2313
 # all tinys
 ATTINY = luminet $(TINY) $(TINYx13)
 # Carrera Digital
-SCAR = bbox132
+SCAR = bbox132 bboxm32
+# WordClock
+WCLK = wclk16 wclk32
 # all boards
-ALL = $(ANIO) $(ARDUINO) $(ATTINY) $(SCAR)  
+ALL = $(ANIO) $(ARDUINO) $(ATTINY) $(SCAR) $(WCLK)
 
 IHEX_AWK = 'BEGIN {c=0;s=0;v=""}; {c+=1;s+=$$0;v=sprintf("%s%02X",v,$$0)}; END {s+=c+A%256+int(A/256)+T; printf (":%02X%04X%02X%s%02X\n",c,A,T,v,(256-(s%256))) };'
 RJMP_AWK = '{x=strtonum($$0)/2-1+0xC000;printf("%i %i",int(x/256),x%256)}'
@@ -188,6 +192,12 @@ t2313: $(TINYx13)
 	cat $(^:%=$(PROGRAM)_%.h) > $@_bootloader_settings.h
 
 scar: $(SCAR)
+	echo "menu.cpu=Processor" > $@_board.txt
+	awk '/remove for/ {exit(0)}; {print $0}' $(<:%=$(PROGRAM)_%.brd.txt) >> $@_board.txt
+	cat $(^:%=$(PROGRAM)_%.cpu.txt) >> $@_board.txt
+	cat $(^:%=$(PROGRAM)_%.h) > $@_bootloader_settings.h
+
+wclk: $(WCLK)
 	echo "menu.cpu=Processor" > $@_board.txt
 	awk '/remove for/ {exit(0)}; {print $0}' $(<:%=$(PROGRAM)_%.brd.txt) >> $@_board.txt
 	cat $(^:%=$(PROGRAM)_%.cpu.txt) >> $@_board.txt
@@ -527,6 +537,24 @@ tiny45 tiny45_isp: LFUSE = E2 # 8MHz internal oscillator, slowly rising power
 tiny45 tiny45_isp: EFUSE = FE # Self-programming enable
 tiny45 tiny45_isp: PREDAT = $(shell echo $(LDSECTION)|$(AWK) $(RJMP_AWK))
 
+tiny85 tiny85_isp: TARGET = tiny85
+tiny85 tiny85_isp: MCU_TARGET = attiny85
+tiny85 tiny85_isp: CFLAGS += '-DUART_P=B' 
+tiny85 tiny85_isp: CFLAGS += '-DLED_P=B' '-DLED_B=4' '-DNUM_LED_FLASHES=1' 
+# 
+ifeq ($(PROGRAM),optiboot)
+tiny85 tiny85_isp: LDSECTION  = 0x1d00
+#tiny85 tiny85_isp: LDSECTION  = 0x0 
+else
+endif
+#tiny85 tiny85_isp: HFUSE = DF # Brownout disabled
+#tiny85 tiny85_isp: LFUSE = 62 # 1MHz internal oscillator, slowly rising power
+#tiny85 tiny85_isp: EFUSE = FE # Self-programming enable
+tiny85 tiny85_isp: HFUSE = D5 # Brownout 2.7V + SPIEN + EESAVE
+tiny85 tiny85_isp: LFUSE = E2 # 8MHz internal oscillator, slowly rising power
+tiny85 tiny85_isp: EFUSE = FE # Self-programming enable
+tiny85 tiny85_isp: PREDAT = $(shell echo $(LDSECTION)|$(AWK) $(RJMP_AWK))
+
 tiny44 tiny44_isp: TARGET = tiny44
 tiny44 tiny44_isp: MCU_TARGET = attiny44
 tiny44 tiny44_isp: CFLAGS += '-DUART_P=B'
@@ -563,19 +591,20 @@ tiny2313 tiny2313_isp: PREDAT = $(shell echo $(LDSECTION)|$(AWK) $(RJMP_AWK))
 
 ############################################################
 # Carrera Black Box D132 (30344) w/ ATmega16
+# Start bootloader by Start Button at Power on
 ############################################################
-bbox132 bbox132_isp: AVR_FREQ = 8000000L
-bbox132 bbox132_isp: BAUD = $(if $(OPTI_BAUD),$(OPTI_BAUD),57600)
-bbox132 bbox132_isp: CFLAGS += '-DMAX_TIME_COUNT=F_CPU>>4' '-DNUM_LED_FLASHES=1'
-bbox132 bbox132_isp: CFLAGS += '-DTIMEOUT_MS=500' 
-bbox132 bbox132_isp: CFLAGS += '-DLED_B=3' '-DLED_P=C' # LED5 (=PC3)
-bbox132 bbox132_isp: CFLAGS += '-DBL_B=1' '-DBL_P=B' # Start (=PB1)
-bbox132 bbox132_isp: LDFLAGS +=
-bbox132 bbox132_isp: BOARD = BLACK_BOX_D132
-bbox132 bbox132_isp: variant = bbox132
-bbox132 bbox132_isp: BRD=bbox132
-bbox132 bbox132_isp: BUILD_EXTRA += -DTIMER0_CLK_SRC=2
-
+$(SCAR) $(SCAR:%=%_isp): AVR_FREQ = 8000000L
+$(SCAR) $(SCAR:%=%_isp): BAUD = $(if $(OPTI_BAUD),$(OPTI_BAUD),57600)
+$(SCAR) $(SCAR:%=%_isp): CFLAGS += '-DMAX_TIME_COUNT=F_CPU>>4' '-DNUM_LED_FLASHES=1'
+$(SCAR) $(SCAR:%=%_isp): CFLAGS += '-DTIMEOUT_MS=500' 
+$(SCAR) $(SCAR:%=%_isp): CFLAGS += '-DLED_B=3' '-DLED_P=C' # LED5 (=PC3)
+$(SCAR) $(SCAR:%=%_isp): CFLAGS += '-DBL_B=1' '-DBL_P=B' # Start (=PB1)
+$(SCAR) $(SCAR:%=%_isp): LDFLAGS +=
+$(SCAR) $(SCAR:%=%_isp): BOARD = BLACK_BOX_D132
+$(SCAR) $(SCAR:%=%_isp): variant = bbox132
+$(SCAR) $(SCAR:%=%_isp): BRD=bbox132
+$(SCAR) $(SCAR:%=%_isp): BUILD_EXTRA += -DTIMER0_CLK_SRC=2
+$(SCAR) $(SCAR:%=%_isp): 
 bbox132 bbox132_isp: TARGET = bbox132
 bbox132 bbox132_isp: MCU_TARGET = atmega16
 ifeq ($(PROGRAM),optiboot)
@@ -586,8 +615,55 @@ bbox132 bbox132_isp: LDSECTION  = 0x3800
 bbox132 bbox132_isp: HFUSE = C8	# same as Carrera = 2kB Bootloader
 endif
 bbox132 bbox132_isp: LFUSE = 2F
+### Carrera Black Box D132 (30344) w/ ATmega32 ###
+bboxm32 bboxm32_isp: TARGET = bboxm32
+bboxm32 bboxm32_isp: MCU_TARGET = atmega32
+ifeq ($(PROGRAM),optiboot)
+bboxm32 bboxm32_isp: LDSECTION  = 0x7e00
+bboxm32 bboxm32_isp: HFUSE = CE # 512B Bootl+ExtCrys+BOut4.0V
+else
+bboxm32 bboxm32_isp: LDSECTION  = 0x7800
+bboxm32 bboxm32_isp: HFUSE = CA	# same as Carrera = 2kB Bootloader
+endif
+bboxm32 bboxm32_isp: LFUSE = 2F
 
+############################################################
+# WordClock w/ ATmega16/32/
+############################################################
+$(WCLK) $(WCLK:%=%_isp): AVR_FREQ = 16000000L
+$(WCLK) $(WCLK:%=%_isp): BAUD = $(if $(OPTI_BAUD),$(OPTI_BAUD),57600)
+$(WCLK) $(WCLK:%=%_isp): CFLAGS += '-DMAX_TIME_COUNT=F_CPU>>4' 
+$(WCLK) $(WCLK:%=%_isp): LDFLAGS +=
+$(WCLK) $(WCLK:%=%_isp): BOARD = WORD_CLOCK
+$(WCLK) $(WCLK:%=%_isp): variant = avrnetio
+$(WCLK) $(WCLK:%=%_isp): BRD=wclk
 
+### AVR-Net-IO w/ ATmega32@16MHz auto-reset
+wclk32 wclk32_isp: TARGET = wclk32
+wclk32 wclk32_isp: MCU_TARGET = atmega32
+ifeq ($(PROGRAM),optiboot)
+wclk32 wclk32_isp: LDSECTION  = 0x7e00
+wclk32 wclk32_isp: HFUSE = DE
+else ifeq ($(PROGRAM),stk500v2)
+wclk32 wclk32_isp: LDSECTION  = 0x7c00
+wclk32 wclk32_isp: HFUSE = DC
+else
+wclk32 wclk32_isp: LDSECTION  = 0x7800
+wclk32 wclk32_isp: HFUSE = DA
+endif
+wclk32 wclk32_isp: LFUSE = BF
+
+### AVR-Net-IO w/ ATmega16@16MHz auto-reset
+wclk16 wclk16_isp: TARGET = wclk16
+wclk16 wclk16_isp: MCU_TARGET = atmega16
+ifeq ($(PROGRAM),optiboot)
+wclk16 wclk16_isp: LDSECTION  = 0x3e00
+wclk16 wclk16_isp: HFUSE = DC
+else
+wclk16 wclk16_isp: LDSECTION  = 0x3800
+wclk16 wclk16_isp: HFUSE = D8
+endif
+wclk16 wclk16_isp: LFUSE = BF
 
 ############################################################
 # machine room
