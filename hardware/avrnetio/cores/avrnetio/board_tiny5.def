@@ -1,0 +1,188 @@
+/*********************************************-*- mode:c -*-
+ * board_avrnetio.h
+ * this file contains all board specific definitions
+ * not the cpu spcific ones!
+ *
+ *  Part of AVR-Netino - https://github.com/maassen/avr-netino
+ *
+ * Copyright (c) 2011 Michael Maassen
+ * 
+ * 2011-01-04:	port to AVR-Net-IO by M.Maassen <mic.maassen@gmail.com>
+ * 2011-01-23:	add A0..A3 for better compatiblity with arduino
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version, or
+ * 
+ * under the terms of the  Common Development and Distribution License (CDDL) 
+ * version 1, see http://www.opensource.org/licenses/cddl1.php
+ * 
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General
+ * Public License along with this library; if not, write to the
+ * Free Software Foundation, Inc., 59 Temple Place, Suite 330,
+ * Boston, MA  02111-1307  USA
+ *
+ * $Id$
+ *
+ ************************************************************
+ * you must define one of the folowing macros to 
+ * use this file:
+ *
+ * Names for special pins or hardware constants:
+ *   -  as const static:
+ *      #define defConstant(N,V) const static uint8_t N = V;
+ *   -  as enum element, inside: enum xxx { ... };
+ *      #define defConstant(N,V) N = V,
+ * defConstants		get all pin fuctions by names
+ *
+ * pinDef(p,b,t,f,u,...)	define a pin by port,bit,timer,
+ *                              function,usage...
+ *   - all in 1 byte (for m168/m328/m32/m644(p)
+ *     #define pinDef(p,b,t,...)	((((P##p)-1)<<5) | (b) | ((t)<<3))
+ *   - all in 2 byte (for m1280/m2560
+ *     #define pinDef(p,b,t,...)	((((P##p)-1)<<8) | (b) | ((t)<<3))
+ *   - only port for digital_pin_to_port_PGM[]
+ *     #define pinDef(p,...)	(P##p)
+ *   - only bit mask for digital_pin_to_bit_mask_PGM[]
+ *     #define pinDef(p,b,...)	_BV(b)
+ *   - only timer for digital_pin_to_timer_PGM[]
+ *     #define pinDef(p,b,t,...)	(t)
+ *   - all in struct pin_map_t { } for (SdFat/Sd2PinMap.h)
+ *     #define pinDef(p,b,t,...)	{&DDR##p, &PIN##p, &PORT##p, b},
+ *
+ ***********************************************************
+ * ATMEL ATtiny25/45/85
+ *
+ *             +-\/-+
+ *  RST  PB5  1|    |8  Vcc
+ *  (D3) PB3  2|    |7  PB2 (D2/INT0)
+ *  (D4) PB4  3|    |6  PB1 (D1)
+ *       GND  4|    |5  PB0 (D0)
+ *             +----+
+ *
+ ***********************************************************/
+
+/***********************************************************
+ * things we want allways 
+ ***********************************************************/
+// we define TINY_X5 to flag different pinnig to libraries
+#ifndef TINY_X5
+#define TINY_X5	0x20110305	/* Date */
+#endif
+
+/* #ifdef Pins_Arduino_h */
+/* #define portOutputRegister(P)	&PORTB */
+/* #define portInputRegister(P)	&PINB */
+/* #define portModeRegister(P)	&DDRB */
+/* #define digitalPinToPort(P)	2 /\* PB *\/ */
+/* #define digitalPinToBitMask(P)	_BV(P) */
+/* #endif */
+
+#ifdef pinDef
+/***********************************************************
+ * mapping from pin number to:
+ * Port,Bit,Timer(PWM),spec.function,usage,pcint,...
+ ***********************************************************/
+/* 0 */
+pinDef( B, 0, TIMER0A,      MOSI, SDA, 0)
+#ifdef TCCR1			/* ATtiny X5 */
+//pinDef( B, 1, TIMER1A,      MISO, D1,  1)
+pinDef( B, 1, NOT_ON_TIMER,      MISO, D1,  1)
+#else				/* ATtiny 13 */
+pinDef( B, 1, TIMER0B,      MISO, D1,  1)
+#endif	/* TCCR1 */
+pinDef( B, 2, NOT_ON_TIMER, SCK,  SCL, 2)
+pinDef( B, 3, NOT_ON_TIMER, ADC3, D3,  3)
+#ifdef TCCR1			/* ATtiny X5 */
+pinDef( B, 4, TIMER1B,      ADC2, D4,  4)
+#else				/* ATtiny 13 */
+pinDef( B, 4, NOT_ON_TIMER, ADC2, D4,  4)
+#endif	/* TCCR1 */
+#endif /* pinDef */
+
+#ifdef anaDef
+/***********************************************************
+ * mapping from analog pin to:
+ * A*,digPin,adcChannel,
+ ***********************************************************/
+anaDef( 0, -1, 0) 		/* not on digital pin */
+anaDef( 1, 2, 1)
+anaDef( 2, 4, 2)
+anaDef( 3, 3, 3)
+#endif	/* anaDef */
+/***********************************************************
+ * the following ArduinoDefs_* defines are optional
+ * if defined these can lead to faster/smaller code
+ ***********************************************************/
+#if defined( ArduinoDefs_Digital )
+#endif	/* ArduinoDefs_Digital */
+
+#if defined( ArduinoDefs_Analog )
+#define analogPinToChannel(P)		(P)
+#endif	/* ArduinoDefs_Analog */
+
+#if defined( ArduinoDefs_PWM )
+#ifdef TCCR1			/* ATtiny X5 */
+#define digitalPinHasPWM(p)         ((p) == 0 || (p) == 1 || (p) == 4)
+#else                           /* ATtiny 13 */
+#define digitalPinHasPWM(p)         ((p) == 0 || (p) == 1)
+#endif	
+#endif	/* ArduinoDefs_PWM */
+
+#if defined( ArduinoDefs_PCINT )
+#ifdef PCMSK
+#define digitalPinToPCICR(p)    (&GIMSK)
+#define digitalPinToPCICRbit(p) (PCIE)
+#define digitalPinToPCMSK(p)    (&PCMSK)
+#define digitalPinToPCMSKbit(p) ((p) & 7)
+#else
+/* no PCINT */
+#define digitalPinToPCICR(p)    ((uint8_t *)0)
+#define digitalPinToPCICRbit(p) 0
+#define digitalPinToPCMSK(p)    ((uint8_t *)0)
+#define digitalPinToPCMSKbit(p) 0
+#endif /* PCMSK */
+#endif	/* ArduinoDefs_PCINT */
+
+#if defined( ArduinoDefs_USB )
+#endif	/* ArduinoDefs_USB */
+
+#if defined( ArduinoDefs_Serial )
+#endif /* ArduinoDefs_Serial */
+
+#ifdef defConstant
+/***********************************************************
+ * define constants for special pins
+ ***********************************************************/
+/* define board specific pin functions */
+
+#ifndef defClass
+#define defClass(C,N) C##_##N
+#endif 
+
+#if defined( All_Constants ) || defined( LCD_Constants )
+#endif
+
+#if defined( All_Constants ) 
+defConstant(pins_SS,NOT_A_PIN)
+defConstant(pins_ADC0,pins_port_B0)
+#endif
+#if defined( All_Constants ) && defined( PACKED_PINS)
+defConstant(TIMER0B,200)	/* NOT_ON_TIMER */
+#endif
+
+defConstant(defClass(_internal_,_avoid_empty_enum_),0)
+#endif	/* defConstant */
+/***********************************************************
+ * clean up Xmacros
+ ***********************************************************/
+#undef pinDef
+#undef defConstant
+#undef defClass
+#undef All_Constants
